@@ -273,8 +273,21 @@ export async function getAdminBookings(
     return [];
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return data.map((b: any) => ({
+  interface RawAdminBookingRow {
+    id: string;
+    public_id: string;
+    event_date: string;
+    status: string;
+    grand_total: number;
+    deposit_amount: number;
+    balance_amount: number;
+    delivery_zone: string | null;
+    created_at?: string;
+    profiles?: { full_name?: string | null; phone?: string | null } | null;
+    packages?: { name?: string | null } | null;
+  }
+
+  return (data as unknown as RawAdminBookingRow[]).map((b) => ({
     id: b.id,
     publicId: b.public_id,
     customerName: b.profiles?.full_name || "Guest Customer",
@@ -286,7 +299,7 @@ export async function getAdminBookings(
     depositAmount: Number(b.deposit_amount) || 0,
     balanceAmount: Number(b.balance_amount) || 0,
     deliveryZone: b.delivery_zone || "Metro Manila",
-    createdAt: b.created_at,
+    createdAt: b.created_at || new Date().toISOString(),
   }));
 }
 
