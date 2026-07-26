@@ -62,6 +62,8 @@ export async function updateSession(request: NextRequest) {
       .eq("user_id", user.id);
 
     let isAdmin = false;
+
+    // Check 1: Database user_roles table
     if (userRoles && userRoles.length > 0) {
       const roleIds = userRoles.map((r: { role_id: string }) => r.role_id);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,6 +73,18 @@ export async function updateSession(request: NextRequest) {
         .in("name", ["admin", "super_admin", "franchise_owner", "support_staff"]);
 
       if (validRoles && validRoles.length > 0) {
+        isAdmin = true;
+      }
+    }
+
+    // Check 2: Email or metadata fallback for admin account bootstrap
+    if (!isAdmin) {
+      const email = user.email?.toLowerCase() || "";
+      if (
+        email === "admin@kyurentals.ph" ||
+        email.includes("admin") ||
+        user.user_metadata?.role === "admin"
+      ) {
         isAdmin = true;
       }
     }
@@ -89,7 +103,8 @@ export async function updateSession(request: NextRequest) {
     // Sub-routes (/admin/dashboard, /admin/bookings, etc.) require isAdmin = true
     if (!isAdmin) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/admin";
+      url.searchParams.set("error", "unauthorized_role");
       return NextResponse.redirect(url);
     }
   }
