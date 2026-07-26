@@ -37,7 +37,7 @@ export default function CustomerDashboardPage() {
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/admin");
     router.refresh();
   };
 

@@ -67,7 +67,7 @@ export default function AdminPage() {
       }
 
       toast.success("Welcome back to KYU Rentals Admin Portal!");
-      router.replace("/admin/dashboard");
+      router.push("/admin/dashboard");
       router.refresh();
     } catch {
       toast.error("An unexpected error occurred during authentication");
