@@ -32,8 +32,8 @@ export async function getAdminCalendarEvents(
   const startDate = new Date(year, month - 1, -7).toISOString().split("T")[0];
   const endDate = new Date(year, month, 14).toISOString().split("T")[0];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBookings, error } = await (supabase.from("bookings") as any)
+  const { data: rawBookings, error: _error } = await supabase
+    .from("bookings")
     .select(`
       id, public_id, status, event_date, start_time, duration_hours, event_end_time,
       delivery_address, delivery_zone, assigned_unit_id, assigned_delivery_personnel_id,
@@ -47,11 +47,27 @@ export async function getAdminCalendarEvents(
     .lte("event_date", endDate)
     .not("status", "in", '("CANCELLED","REJECTED","EXPIRED","DRAFT")');
 
-  if (error || !rawBookings) return [];
+  interface RawBookingRecord {
+    id: string;
+    public_id: string;
+    status: string;
+    event_date: string;
+    start_time: string;
+    duration_hours: number;
+    venue_address: string;
+    delivery_zone: string | null;
+    balance_amount: number;
+    event_end_time?: string | null;
+    delivery_address?: string | null;
+    assigned_unit_id?: string | null;
+    inventory_units?: { serial_number?: string | null } | null;
+    assigned_delivery_personnel_id?: string | null;
+    assigned_personnel?: { full_name?: string | null } | null;
+    profiles?: { full_name?: string | null; phone?: string | null } | null;
+    packages?: { name?: string | null } | null;
+  }
 
-  // Parse events
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const events: AdminCalendarEvent[] = rawBookings.map((b: any) => {
+  const events: AdminCalendarEvent[] = (rawBookings as unknown as RawBookingRecord[]).map((b) => {
     const isPickup = ["COMPLETED", "RETRIEVED", "PICKUP_SCHEDULED", "OUT_FOR_PICKUP", "PICKED_UP"].includes(b.status);
     const isActive = ["RENTAL_ACTIVE", "DELIVERED"].includes(b.status);
     const eventType = isPickup ? "PICKUP" : isActive ? "ACTIVE_RENTAL" : "DELIVERY";

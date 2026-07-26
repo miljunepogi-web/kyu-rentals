@@ -143,8 +143,7 @@ export async function getAdminNetProfitSummary(
     remainingBalances: Number(r.remaining_balances) || 0,
     bookingCount: Number(r.booking_count) || 0,
     averageBookingValue: Number(r.average_booking_value) || 0,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    topExpenseCategories: (r.top_expense_categories || []).map((c: any) => ({
+    topExpenseCategories: ((r.top_expense_categories as Array<{ category_name: string; total_amount: number }>) || []).map((c) => ({
       categoryName: c.category_name,
       totalAmount: Number(c.total_amount) || 0,
     })),
@@ -170,8 +169,16 @@ export async function getAdminPnLReport(year?: number): Promise<PnLMonthlyRow[]>
 
   if (rpcError || !rpcResult || !Array.isArray(rpcResult)) return [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return rpcResult.map((m: any) => ({
+  interface RawPnLRecord {
+    month_number: number;
+    month_name: string;
+    revenue: number;
+    expenses: number;
+    net_profit: number;
+    ytd_net_profit: number;
+  }
+
+  return (rpcResult as RawPnLRecord[]).map((m) => ({
     monthNumber: Number(m.month_number) || 0,
     monthName: String(m.month_name).trim(),
     revenue: Number(m.revenue) || 0,

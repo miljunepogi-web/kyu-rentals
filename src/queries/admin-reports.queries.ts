@@ -155,8 +155,17 @@ export async function getAdminPackageUtilization(): Promise<PackageUtilizationMe
 
   if (rpcError || !rpcResult || !Array.isArray(rpcResult)) return [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return rpcResult.map((u: any) => ({
+  interface RawPackageUtilizationRecord {
+    package_id: string;
+    package_name: string;
+    package_slug: string;
+    total_bookings: number;
+    total_rental_days: number;
+    utilization_percentage: number;
+    revenue_generated: number;
+  }
+
+  return (rpcResult as RawPackageUtilizationRecord[]).map((u) => ({
     packageId: u.package_id,
     packageName: u.package_name,
     packageSlug: u.package_slug,

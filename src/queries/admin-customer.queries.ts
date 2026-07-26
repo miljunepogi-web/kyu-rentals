@@ -138,17 +138,25 @@ export async function getAdminCustomerDetail(customerId: string): Promise<AdminC
 
   if (error || !p) return null;
 
+  interface RawCustomerBookingRecord {
+    id: string;
+    public_id: string;
+    event_date: string;
+    status: string;
+    grand_total: number;
+    balance_amount: number;
+    packages?: { name?: string | null } | null;
+  }
+
   // Fetch customer's bookings
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: customerBookings } = await (supabase as any)
+  const { data: customerBookings } = await supabase
     .from("bookings")
     .select("id, public_id, event_date, status, grand_total, balance_amount, packages!package_id (name)")
     .eq("customer_id", customerId)
     .eq("is_deleted", false)
     .order("created_at", { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bookings = (customerBookings || []).map((b: any) => ({
+  const bookings = ((customerBookings as unknown as RawCustomerBookingRecord[]) || []).map((b) => ({
     id: b.id,
     publicId: b.public_id,
     packageName: b.packages?.name || "Karaoke Setup",

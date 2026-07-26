@@ -157,9 +157,20 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     .filter((b: { status: string }) => !["CANCELLED", "REJECTED", "EXPIRED", "DRAFT"].includes(b.status))
     .reduce((sum: number, b: { grand_total: number }) => sum + (Number(b.grand_total) || 0), 0);
 
+  interface RawTodayBookingRecord {
+    id: string;
+    public_id: string;
+    status: string;
+    event_date: string;
+    start_time: string;
+    delivery_zone: string | null;
+    profiles?: { full_name?: string | null } | null;
+    packages?: { name?: string | null } | null;
+    assigned_personnel?: { full_name?: string | null } | null;
+  }
+
   // Today's schedule timeline items
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scheduleTimeline: ScheduleItem[] = todayBookings.map((b: any) => ({
+  const scheduleTimeline: ScheduleItem[] = (todayBookings as unknown as RawTodayBookingRecord[]).map((b) => ({
     id: b.id,
     publicId: b.public_id,
     customerName: b.profiles?.full_name || "Customer",
@@ -361,8 +372,7 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
       expiresAt: lockData?.expires_at || null,
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payments: (paymentsData || []).map((p: any) => ({
+    payments: ((paymentsData as Array<{ id: string; public_id: string; amount: number; status: string; payment_type: string; payment_method: string; gateway_transaction_id: string | null; created_at: string }>) || []).map((p) => ({
       id: p.id,
       publicId: p.public_id,
       amount: Number(p.amount) || 0,
@@ -373,8 +383,7 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
       createdAt: p.created_at,
     })),
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    timelineEvents: (timelineData || []).map((t: any) => ({
+    timelineEvents: ((timelineData as Array<{ id: string; from_status: string | null; to_status: string; event_label: string; event_description: string | null; performed_by_role: string | null; created_at: string }>) || []).map((t) => ({
       id: t.id,
       fromStatus: t.from_status,
       toStatus: t.to_status,

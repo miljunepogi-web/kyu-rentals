@@ -143,12 +143,11 @@ export async function getAdminProofOfDelivery(
     notes: pod.notes,
     deliveredByName: pod.profiles?.full_name || null,
     deliveredAt: pod.delivered_at,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    photos: (photos || []).map((p: any) => ({
+    photos: ((photos as Array<{ id: string; photo_url: string; photo_type: string; caption?: string | null }>) || []).map((p) => ({
       id: p.id,
       photoUrl: p.photo_url,
       photoType: p.photo_type,
-      caption: p.caption,
+      caption: p.caption || null,
     })),
   };
 }

@@ -185,8 +185,7 @@ export async function getCustomerBookingDetail(
     assignedPersonnelName: b.assigned_personnel?.full_name || null,
     vehicleInfo: b.vehicle_info || null,
     createdAt: b.created_at,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payments: (payments || []).map((p: any) => ({
+    payments: ((payments as Array<{ id: string; public_id: string; amount: number; status: string; payment_type: string; payment_method: string; created_at: string }>) || []).map((p) => ({
       id: p.id,
       publicId: p.public_id,
       amount: Number(p.amount) || 0,
@@ -195,8 +194,7 @@ export async function getCustomerBookingDetail(
       paymentMethod: p.payment_method,
       createdAt: p.created_at,
     })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    timelineEvents: (timeline || []).map((t: any) => ({
+    timelineEvents: ((timeline as Array<{ id: string; from_status: string | null; to_status: string; event_label: string; event_description: string | null; created_at: string }>) || []).map((t) => ({
       id: t.id,
       fromStatus: t.from_status,
       toStatus: t.to_status,
