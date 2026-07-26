@@ -7,22 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserCheck, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2, Sparkles, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const packageSlug = searchParams.get("package");
 
+  const showError = (message: string) => {
+    setFormSuccess(null);
+    setFormError(message);
+    toast.error(message);
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+
     if (!email || !password || !fullName) {
-      toast.error("Please fill in all required fields");
+      showError("Please fill in all required fields.");
       return;
     }
 
@@ -41,17 +52,38 @@ export default function RegisterPage() {
       });
 
       if (error) {
-        toast.error(error.message || "Failed to create customer account");
+        const message = error.message?.toLowerCase().includes("rate limit")
+          ? "Too many signup attempts. Please wait a few minutes, then try again."
+          : error.message || "Failed to create customer account.";
+        showError(message);
+        return;
+      }
+
+      if (!data.user) {
+        showError("We could not create your account. Please try again.");
+        return;
+      }
+
+      if (!data.session) {
+        const message = "Account created. Please check your email to confirm your account before booking.";
+        setFormError(null);
+        setFormSuccess(message);
+        toast.success(message);
         return;
       }
 
       if (data.user) {
+        const message = "Customer account created. Welcome to KYU Rentals.";
+        setFormSuccess(message);
         toast.success("Customer Account Created! Welcome to KYU Rentals");
         router.push(packageSlug ? `/packages/${packageSlug}/book` : "/dashboard");
         router.refresh();
       }
-    } catch {
-      toast.error("An unexpected error occurred during account creation");
+    } catch (error: unknown) {
+      const message = error instanceof Error
+        ? error.message
+        : "An unexpected error occurred during account creation.";
+      showError(message);
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +104,27 @@ export default function RegisterPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
+          {formError && (
+            <div
+              role="alert"
+              className="mb-4 flex gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{formError}</p>
+            </div>
+          )}
+
+          {formSuccess && (
+            <div
+              role="status"
+              className="mb-4 flex gap-3 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-foreground"
+            >
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <p>{formSuccess}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleRegister} className="space-y-4" noValidate>
             <div className="space-y-2">
               <Label htmlFor="reg-fullname">Full Name</Label>
               <Input
