@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/utils/logger";
 import { Result } from "@/types";
 import { ErrorCode } from "@/utils/errors";
@@ -153,11 +153,18 @@ export async function processPayMongoWebhookEvent(
   }
 
   // 3. Environment & Livemode Validation (Code Review Finding #3)
-  if (isProduction && !isLiveMode) {
-    logger.warn("Test mode webhook event received in production environment", { eventId });
+  const paymongoSecretKey = process.env.PAYMONGO_SECRET_KEY || "";
+  const expectsLiveMode = paymongoSecretKey.startsWith("sk_live_");
+
+  if (isProduction && isLiveMode !== expectsLiveMode) {
+    logger.warn("PayMongo webhook livemode does not match configured key mode", {
+      eventId,
+      isLiveMode,
+      expectsLiveMode,
+    });
     return {
       success: false,
-      error: "Test mode webhook events are prohibited in production environment",
+      error: "Webhook livemode does not match configured PayMongo key mode",
       code: ErrorCode.BAD_REQUEST,
     };
   }
@@ -217,7 +224,7 @@ export async function processPayMongoWebhookEvent(
     };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 6. Fetch Target Booking Record
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

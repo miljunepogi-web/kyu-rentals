@@ -1,4 +1,10 @@
 import crypto from "crypto";
+import { vi } from "vitest";
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: vi.fn(),
+}));
+
 import { verifyPayMongoSignature } from "../paymongo-processor";
 
 describe("Milestone 3.5 - PayMongo Webhook Processor", () => {
