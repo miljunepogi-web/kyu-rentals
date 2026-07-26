@@ -20,12 +20,28 @@ export default function AdminPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        router.replace("/admin/dashboard");
-      } else {
-        setIsCheckingAuth(false);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: userRoles } = await (supabase.from("user_roles") as any)
+          .select("role_id")
+          .eq("user_id", user.id);
+
+        if (userRoles && userRoles.length > 0) {
+          const roleIds = userRoles.map((r: { role_id: string }) => r.role_id);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: validRoles } = await (supabase.from("roles") as any)
+            .select("name")
+            .in("id", roleIds)
+            .in("name", ["admin", "super_admin", "franchise_owner", "support_staff"]);
+
+          if (validRoles && validRoles.length > 0) {
+            router.replace("/admin/dashboard");
+            return;
+          }
+        }
       }
+      setIsCheckingAuth(false);
     });
   }, [router, supabase]);
 

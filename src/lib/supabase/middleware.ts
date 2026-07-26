@@ -46,24 +46,16 @@ export async function updateSession(request: NextRequest) {
 
   // Admin route protection & entry point handling
   if (pathname.startsWith("/admin")) {
-    if (pathname === "/admin") {
-      if (user) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/admin/dashboard";
-        return NextResponse.redirect(url);
-      }
-      // Unauthenticated access to /admin renders the login form directly
-      return supabaseResponse;
-    }
-
-    // Protect all /admin/* sub-routes (/admin/dashboard, /admin/bookings, etc.)
     if (!user) {
+      if (pathname === "/admin") {
+        return supabaseResponse;
+      }
       const url = request.nextUrl.clone();
       url.pathname = "/admin";
       return NextResponse.redirect(url);
     }
 
-    // Server-Side Admin Role Authorization Verification (Sprint 8 Task #2)
+    // Verify if logged-in user has an Admin role
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: userRoles } = await (supabase.from("user_roles") as any)
       .select("role_id")
@@ -83,6 +75,18 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
+    // Entry point /admin handling
+    if (pathname === "/admin") {
+      if (isAdmin) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/dashboard";
+        return NextResponse.redirect(url);
+      }
+      // Non-admin logged-in user on /admin: allow rendering login page so they can enter Admin credentials
+      return supabaseResponse;
+    }
+
+    // Sub-routes (/admin/dashboard, /admin/bookings, etc.) require isAdmin = true
     if (!isAdmin) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
