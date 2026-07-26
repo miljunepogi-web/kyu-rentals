@@ -47,7 +47,7 @@ export default function RegisterPage() {
 
       if (data.user) {
         toast.success("Customer Account Created! Welcome to KYU Rentals");
-        router.push(packageSlug ? `/packages/${packageSlug}` : "/dashboard");
+        router.push(packageSlug ? `/packages/${packageSlug}/book` : "/dashboard");
         router.refresh();
       }
     } catch {

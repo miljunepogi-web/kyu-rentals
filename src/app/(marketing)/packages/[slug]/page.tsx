@@ -138,7 +138,7 @@ export default async function PackageDetailPage({ params }: PackageDetailPagePro
 
               {/* Book Button */}
               <Button asChild size="lg" className="w-full text-base h-12 font-bold">
-                <Link href={`/register?package=${pkg.slug}`}>Proceed to Reserve Date</Link>
+                <Link href={`/packages/${pkg.slug}/book`}>Proceed to Reserve Date</Link>
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
