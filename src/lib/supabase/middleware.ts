@@ -56,14 +56,23 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // 2. Authenticated users on /admin entry point are forwarded directly to /admin/dashboard
+    const { data: hasAdminAccess } = await supabase.rpc("is_admin_staff");
+
+    if (!hasAdminAccess) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    // 2. Staff users on /admin entry point are forwarded directly to /admin/dashboard
     if (pathname === "/admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/dashboard";
       return NextResponse.redirect(url);
     }
 
-    // 3. Authenticated users accessing /admin/* sub-routes are allowed
+    // 3. Staff users accessing /admin/* sub-routes are allowed
     return supabaseResponse;
   }
 
