@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createPayMongoCheckoutSession } from "@/lib/api/paymongo";
 import { Result } from "@/types";
@@ -44,6 +45,7 @@ export async function initializeBookingPaymentAction(
 
   try {
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
 
     // 1. Fetch Booking Record & Verify Ownership Context
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,7 +88,7 @@ export async function initializeBookingPaymentAction(
 
     // 2. Idempotency Check: Reuse active pending payment session if exists
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingPaymentData } = await (supabase.from("payments") as any)
+    const { data: existingPaymentData } = await (adminSupabase.from("payments") as any)
       .select("id, gateway_checkout_session_id, gateway_checkout_url, gateway_payment_intent_id, status")
       .eq("booking_id", booking.id)
       .eq("status", "PENDING")
@@ -149,7 +151,7 @@ export async function initializeBookingPaymentAction(
 
     // 4. Database Persistence (payments table)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: paymentRecord, error: paymentInsertErr } = await (supabase.from("payments") as any)
+    const { data: paymentRecord, error: paymentInsertErr } = await (adminSupabase.from("payments") as any)
       .insert({
         tenant_id: booking.tenant_id,
         booking_id: booking.id,
@@ -177,7 +179,7 @@ export async function initializeBookingPaymentAction(
 
     // 5. Audit Event Insertion
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("booking_timeline_events") as any).insert({
+    await (adminSupabase.from("booking_timeline_events") as any).insert({
       tenant_id: booking.tenant_id,
       booking_id: booking.id,
       from_status: "PENDING_PAYMENT",

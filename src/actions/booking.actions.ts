@@ -1,39 +1,17 @@
 "use server";
 
 import crypto from "crypto";
-import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateBookingPrice } from "@/lib/pricing/pricing-engine";
 import { checkPackageAvailability } from "@/lib/availability/availability-engine";
 import { Result } from "@/types";
 import { ErrorCode } from "@/utils/errors";
 import { logger } from "@/utils/logger";
-
-// 1. Zod Validation Schema for Booking Creation
-export const createBookingInputSchema = z.object({
-  packageSlug: z.string().min(1, "Package selection is required"),
-  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid event date format (yyyy-MM-dd)"),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid start time format (HH:mm)"),
-  durationHours: z.number().min(4, "Minimum rental duration is 4 hours"),
-  deliveryAddress: z.string().min(5, "Delivery address is required"),
-  deliveryZone: z.string().optional(),
-  specialInstructions: z.string().optional(),
-  customerFullName: z.string().min(2, "Full name is required"),
-  customerEmail: z.string().email("Valid email address is required"),
-  customerPhone: z.string().min(10, "Valid phone number is required"),
-  addons: z
-    .array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        unitPrice: z.number().min(0),
-        quantity: z.number().min(1),
-      })
-    )
-    .default([]),
-});
-
-export type CreateBookingInput = z.infer<typeof createBookingInputSchema>;
+import {
+  createBookingInputSchema,
+  type CreateBookingInput,
+} from "@/schemas/booking.schema";
 
 export interface CreateBookingResponse {
   bookingId: string;
@@ -237,8 +215,9 @@ export async function createBookingAction(
     const packageName = pkg.name;
 
     // E. Concurrency-Safe Availability Check
+    const adminSupabase = createAdminClient();
     const availResult = await checkPackageAvailability({
-      supabase,
+      supabase: adminSupabase,
       tenantId,
       packageId,
       eventDate: payload.eventDate,

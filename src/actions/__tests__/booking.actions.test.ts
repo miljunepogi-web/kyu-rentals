@@ -1,4 +1,4 @@
-import { createBookingInputSchema } from "../booking.actions";
+import { createBookingInputSchema } from "@/schemas/booking.schema";
 
 describe("Milestone 3.3 - Booking Creation Input Validation", () => {
   const validPayload = {
