@@ -9,6 +9,10 @@ export interface EmailPayload {
   subject: string;
   html: string;
   from?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+  }>;
 }
 
 export interface EmailResponse {
@@ -46,6 +50,7 @@ export async function sendEmailNotification(payload: EmailPayload): Promise<Emai
         to: [payload.to],
         subject: payload.subject,
         html: payload.html,
+        attachments: payload.attachments,
       }),
     });
 

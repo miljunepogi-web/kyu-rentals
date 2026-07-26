@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/utils/logger";
 import { Result } from "@/types";
 import { ErrorCode } from "@/utils/errors";
+import {
+  buildBookingConfirmationData,
+  sendBookingConfirmationEmail,
+} from "@/lib/notifications/booking-confirmation";
+import { BookingSnapshot } from "@/lib/notifications/booking-confirmation.types";
 
 export interface PayMongoWebhookEvent {
   data: {
@@ -258,21 +263,15 @@ export async function processPayMongoWebhookEvent(
     };
   }
 
-  const paidAtIso = innerAttributes.paid_at
-    ? new Date(innerAttributes.paid_at * 1000).toISOString()
-    : new Date().toISOString();
-
   // 8. Execute TRUE ATOMIC TRANSACTION via PostgreSQL RPC `process_paymongo_webhook_atomic`
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rpcResult, error: rpcErr } = await (supabase.rpc as any)("process_paymongo_webhook_atomic", {
-    p_tenant_id: booking.tenant_id,
-    p_booking_id: booking.id,
     p_event_id: eventId,
     p_event_type: eventType,
-    p_gateway_transaction_id: gatewayTransactionId,
-    p_paid_amount_centavos: paidAmountCentavos,
-    p_expected_deposit_centavos: expectedDepositCentavos,
-    p_paid_at: paidAtIso,
+    p_booking_id: booking.id,
+    p_payment_intent_id: gatewayTransactionId,
+    p_amount_paid: paidAmountCentavos / 100,
+    p_payment_method: "PAYMONGO_CHECKOUT",
     p_raw_payload: eventPayload,
   });
 
@@ -285,11 +284,22 @@ export async function processPayMongoWebhookEvent(
     };
   }
 
-  if (rpcResult?.status === "duplicate" || rpcResult?.status === "already_confirmed") {
+  if (rpcResult?.duplicate || rpcResult?.status === "duplicate" || rpcResult?.status === "already_confirmed") {
     logger.info("PayMongo webhook duplicate delivery acknowledged idempotently", { eventId, bookingId });
     return {
       success: true,
       data: { eventId, bookingId, duplicate: true },
+    };
+  }
+
+  if (rpcResult?.success !== true && rpcResult?.status !== "success") {
+    logger.error("Atomic RPC transaction process_paymongo_webhook_atomic returned malformed payload", {
+      rpcResult,
+    });
+    return {
+      success: false,
+      error: "Atomic transaction returned an invalid webhook processing result",
+      code: ErrorCode.INTERNAL_ERROR,
     };
   }
 
@@ -298,6 +308,66 @@ export async function processPayMongoWebhookEvent(
     bookingId,
     depositAmount: booking.deposit_amount,
   });
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: confirmedBooking } = await (supabase.from("bookings") as any)
+      .select("id, public_id, event_date, start_time, duration_hours, venue_address, delivery_zone, grand_total, deposit_amount, balance_amount, snapshot")
+      .eq("id", booking.id)
+      .eq("tenant_id", booking.tenant_id)
+      .eq("is_deleted", false)
+      .maybeSingle();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: paidPayment } = await (supabase.from("payments") as any)
+      .select("amount, payment_method, gateway_transaction_id, updated_at, created_at")
+      .eq("booking_id", booking.id)
+      .eq("tenant_id", booking.tenant_id)
+      .in("status", ["PAID", "SUCCESSFUL"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (confirmedBooking && paidPayment) {
+      const confirmationData = buildBookingConfirmationData(
+        {
+          id: confirmedBooking.id,
+          public_id: confirmedBooking.public_id,
+          event_date: confirmedBooking.event_date,
+          start_time: confirmedBooking.start_time,
+          duration_hours: confirmedBooking.duration_hours,
+          venue_address: confirmedBooking.venue_address,
+          delivery_zone: confirmedBooking.delivery_zone,
+          grand_total: confirmedBooking.grand_total,
+          deposit_amount: confirmedBooking.deposit_amount,
+          balance_amount: confirmedBooking.balance_amount,
+          snapshot: confirmedBooking.snapshot as BookingSnapshot | null,
+        },
+        {
+          amount: paidPayment.amount,
+          payment_method: paidPayment.payment_method,
+          gateway_transaction_id: paidPayment.gateway_transaction_id,
+          updated_at: paidPayment.updated_at,
+          created_at: paidPayment.created_at,
+        }
+      );
+
+      await sendBookingConfirmationEmail(confirmationData);
+    } else {
+      logger.warn("Skipped booking confirmation email due to missing booking or payment data", {
+        bookingId: booking.id,
+        hasBooking: Boolean(confirmedBooking),
+        hasPayment: Boolean(paidPayment),
+      });
+    }
+  } catch (notificationError: unknown) {
+    const err = notificationError as Error;
+    logger.error("Booking confirmation notification failed after payment confirmation", {
+      eventId,
+      bookingId,
+      error: err.message,
+    });
+  }
 
   return {
     success: true,
