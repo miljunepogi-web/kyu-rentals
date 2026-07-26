@@ -19,25 +19,32 @@ export default function AdminLayout({
     role: "Admin Portal",
   });
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
   // Fetch the actual signed-in user for the sidebar badge
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
+        setIsAuthenticated(true);
         const email = user.email ?? "";
         const displayName =
           (user.user_metadata?.full_name as string | undefined) ||
           email.split("@")[0] ||
           "Admin";
         setUserDisplay({ name: displayName, role: email });
+      } else {
+        setIsAuthenticated(false);
       }
     });
   }, []);
 
   const closeMobile = () => setIsMobileOpen(false);
 
-  // Standalone full-screen layout for /admin login page
-  if (pathname === "/admin") {
+  const isLoginPage = pathname === "/admin" || pathname === "/admin/" || pathname === "/login";
+
+  // Standalone full-screen layout for unauthenticated users / login page
+  if (isLoginPage || isAuthenticated === false) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
         {children}
