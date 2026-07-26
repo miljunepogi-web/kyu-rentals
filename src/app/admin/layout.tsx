@@ -36,6 +36,15 @@ export default function AdminLayout({
 
   const closeMobile = () => setIsMobileOpen(false);
 
+  // Standalone full-screen layout for /admin login page
+  if (pathname === "/admin") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex">
       {/* Desktop Sidebar */}
