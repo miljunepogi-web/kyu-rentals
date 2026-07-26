@@ -46,6 +46,7 @@ export async function updateSession(request: NextRequest) {
 
   // Admin route protection & entry point handling
   if (pathname.startsWith("/admin")) {
+    // 1. Unauthenticated users can only view /admin login form
     if (!user) {
       if (pathname === "/admin") {
         return supabaseResponse;
@@ -55,58 +56,15 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Verify if logged-in user has an Admin role
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: userRoles } = await (supabase.from("user_roles") as any)
-      .select("role_id")
-      .eq("user_id", user.id);
-
-    let isAdmin = false;
-
-    // Check 1: Database user_roles table
-    if (userRoles && userRoles.length > 0) {
-      const roleIds = userRoles.map((r: { role_id: string }) => r.role_id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: validRoles } = await (supabase.from("roles") as any)
-        .select("name")
-        .in("id", roleIds)
-        .in("name", ["admin", "super_admin", "franchise_owner", "support_staff"]);
-
-      if (validRoles && validRoles.length > 0) {
-        isAdmin = true;
-      }
-    }
-
-    // Check 2: Email or metadata fallback for admin account bootstrap
-    if (!isAdmin) {
-      const email = user.email?.toLowerCase() || "";
-      if (
-        email === "admin@kyurentals.ph" ||
-        email.includes("admin") ||
-        user.user_metadata?.role === "admin"
-      ) {
-        isAdmin = true;
-      }
-    }
-
-    // Entry point /admin handling
+    // 2. Authenticated users on /admin entry point are forwarded directly to /admin/dashboard
     if (pathname === "/admin") {
-      if (isAdmin) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/admin/dashboard";
-        return NextResponse.redirect(url);
-      }
-      // Non-admin logged-in user on /admin: allow rendering login page so they can enter Admin credentials
-      return supabaseResponse;
-    }
-
-    // Sub-routes (/admin/dashboard, /admin/bookings, etc.) require isAdmin = true
-    if (!isAdmin) {
       const url = request.nextUrl.clone();
-      url.pathname = "/admin";
-      url.searchParams.set("error", "unauthorized_role");
+      url.pathname = "/admin/dashboard";
       return NextResponse.redirect(url);
     }
+
+    // 3. Authenticated users accessing /admin/* sub-routes are allowed
+    return supabaseResponse;
   }
 
   return supabaseResponse;
