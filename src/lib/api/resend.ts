@@ -38,7 +38,10 @@ export async function sendEmailNotification(payload: EmailPayload): Promise<Emai
   }
 
   try {
-    const fromAddress = payload.from || "KYU Rentals <notifications@kyurentals.com>";
+    const fromAddress =
+      payload.from ||
+      process.env.RESEND_FROM_EMAIL ||
+      "KYU Rentals <onboarding@resend.dev>";
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
