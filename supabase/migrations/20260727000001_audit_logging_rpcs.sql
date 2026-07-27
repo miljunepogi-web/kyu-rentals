@@ -439,7 +439,7 @@ BEGIN
     END IF;
 
     INSERT INTO public.booking_timeline_events (
-        tenant_id, booking_id, from_status, to_status, event_label, event_description, performed_by_role, performed_by_user_id, is_system_event, metadata
+        tenant_id, booking_id, from_status, to_status, event_label, event_description, performed_by_role, performed_by, is_system_event, metadata
     ) VALUES (
         p_tenant_id, p_booking_id, v_current_status, p_target_status, 'Admin Status Transition: ' || p_target_status,
         p_reason, 'admin', p_admin_profile_id, FALSE, jsonb_build_object('previousStatus', v_current_status, 'newStatus', p_target_status, 'reason', p_reason)

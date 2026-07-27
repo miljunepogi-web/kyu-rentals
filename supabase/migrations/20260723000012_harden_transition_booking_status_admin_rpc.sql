@@ -187,7 +187,7 @@ BEGIN
         event_label,
         event_description,
         performed_by_role,
-        performed_by_user_id,
+        performed_by,
         is_system_event,
         metadata
     )
