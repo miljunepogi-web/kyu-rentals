@@ -614,7 +614,7 @@ export function AdminBookingDetailSheet({
                         </div>
                         <span
                           className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
-                            p.status === "SUCCESSFUL" || p.status === "COMPLETED"
+                            ["PAID", "SUCCESSFUL", "COMPLETED"].includes(p.status)
                               ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                               : p.status === "FAILED"
                               ? "bg-destructive/10 text-destructive border-destructive/20"
