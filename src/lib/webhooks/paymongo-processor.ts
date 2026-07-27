@@ -198,11 +198,14 @@ export async function processPayMongoWebhookEvent(
   const gatewayTransactionId = innerData.id;
 
   if (paymentStatus !== "paid") {
-    logger.warn("PayMongo webhook payment status is not paid", { eventId, paymentStatus });
+    logger.info("Ignoring PayMongo webhook with non-paid inner status safely", {
+      eventId,
+      eventType,
+      paymentStatus,
+    });
     return {
-      success: false,
-      error: `Payment status '${paymentStatus}' is not paid`,
-      code: ErrorCode.BAD_REQUEST,
+      success: true,
+      data: { eventId },
     };
   }
 
