@@ -319,7 +319,7 @@ export async function processPayMongoWebhookEvent(
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: confirmedBooking } = await (supabase.from("bookings") as any)
-      .select("id, public_id, event_date, start_time, duration_hours, venue_address, delivery_zone, grand_total, deposit_amount, balance_amount, snapshot")
+      .select("id, public_id, event_date, start_time, duration_hours, delivery_address, delivery_zone, grand_total, deposit_amount, balance_amount, snapshot")
       .eq("id", booking.id)
       .eq("tenant_id", booking.tenant_id)
       .eq("is_deleted", false)
@@ -343,7 +343,7 @@ export async function processPayMongoWebhookEvent(
           event_date: confirmedBooking.event_date,
           start_time: confirmedBooking.start_time,
           duration_hours: confirmedBooking.duration_hours,
-          venue_address: confirmedBooking.venue_address,
+          venue_address: confirmedBooking.delivery_address,
           delivery_zone: confirmedBooking.delivery_zone,
           grand_total: confirmedBooking.grand_total,
           deposit_amount: confirmedBooking.deposit_amount,
