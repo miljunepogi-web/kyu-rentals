@@ -1,7 +1,14 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import { newDb, DataType } from "pg-mem";
 
-describe("PR 1 — Real PostgreSQL Engine Database RPC Integration Tests", () => {
+/**
+ * PR 1 — PostgreSQL Query Simulation Test Suite (pg-mem)
+ *
+ * NOTE: This test suite validates SQL query evaluation logic using pg-mem in-memory schema simulation.
+ * It DOES NOT test SECURITY DEFINER execution context, auth.uid() session claims, search_path isolation,
+ * or GRANT/REVOKE permission enforcement. Full PL/pgSQL RPC integration tests require local Supabase CLI / PostgreSQL.
+ */
+describe("PR 1 — PostgreSQL Query Simulation Test Suite (pg-mem)", () => {
   let db: ReturnType<typeof newDb>;
   let currentAuthUserId: string | null = null;
 
@@ -223,60 +230,60 @@ describe("PR 1 — Real PostgreSQL Engine Database RPC Integration Tests", () =>
     return Boolean(res[0]?.res);
   }
 
-  test("REAL POSTGRES RPC EXECUTION: unauthenticated call (auth.uid() NULL) returns FALSE", () => {
+  test("PG-MEM SIMULATION: unauthenticated call (auth.uid() NULL) returns FALSE", () => {
     setAuthUser(null);
     const result = queryHasPermission("bookings.view", TENANT_A_ID);
     expect(result).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: unknown permission key returns FALSE", () => {
+  test("PG-MEM SIMULATION: unknown permission key returns FALSE", () => {
     setAuthUser(USER_ADMIN_A);
     const result = queryHasPermission("non_existent_key", TENANT_A_ID);
     expect(result).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: admin in Tenant A succeeds for Tenant A (TRUE), but FAILS for Tenant B (FALSE)", () => {
+  test("PG-MEM SIMULATION: admin in Tenant A succeeds for Tenant A (TRUE), but FAILS for Tenant B (FALSE)", () => {
     setAuthUser(USER_ADMIN_A);
     expect(queryHasPermission("bookings.view", TENANT_A_ID)).toBe(true);
     expect(queryHasPermission("bookings.view", TENANT_B_ID)).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: non-super-admin FAILS CLOSED when targetTenantId is NULL (FALSE)", () => {
+  test("PG-MEM SIMULATION: non-super-admin FAILS CLOSED when targetTenantId is NULL (FALSE)", () => {
     setAuthUser(USER_ADMIN_A);
     expect(queryHasPermission("bookings.view", null)).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: super_admin succeeds platform-wide across Tenant A, Tenant B, and NULL tenant", () => {
+  test("PG-MEM SIMULATION: super_admin succeeds platform-wide across Tenant A, Tenant B, and NULL tenant", () => {
     setAuthUser(USER_SUPER_ADMIN);
     expect(queryHasPermission("financials.view", TENANT_A_ID)).toBe(true);
     expect(queryHasPermission("financials.view", TENANT_B_ID)).toBe(true);
     expect(queryHasPermission("financials.view", null)).toBe(true);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: inactive user profile fails closed (FALSE)", () => {
+  test("PG-MEM SIMULATION: inactive user profile fails closed (FALSE)", () => {
     setAuthUser(USER_INACTIVE_A);
     expect(queryHasPermission("bookings.view", TENANT_A_ID)).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: support_staff cannot view financials (FALSE)", () => {
+  test("PG-MEM SIMULATION: support_staff cannot view financials (FALSE)", () => {
     setAuthUser(USER_SUPPORT_A);
     const result = db.public.many(`SELECT public.can_view_financials('${TENANT_A_ID}') AS res;`);
     expect(Boolean(result[0]?.res)).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: driver cannot access admin dashboard (FALSE)", () => {
+  test("PG-MEM SIMULATION: driver cannot access admin dashboard (FALSE)", () => {
     setAuthUser(USER_DRIVER_A);
     const result = db.public.many(`SELECT public.can_access_admin_dashboard('${TENANT_A_ID}') AS res;`);
     expect(Boolean(result[0]?.res)).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: driver receives only assigned logistics permissions (TRUE for logistics, FALSE for bookings)", () => {
+  test("PG-MEM SIMULATION: driver receives only assigned logistics permissions (TRUE for logistics, FALSE for bookings)", () => {
     setAuthUser(USER_DRIVER_A);
     expect(queryHasPermission("logistics.view_assigned", TENANT_A_ID)).toBe(true);
     expect(queryHasPermission("bookings.view", TENANT_A_ID)).toBe(false);
   });
 
-  test("REAL POSTGRES RPC EXECUTION: customer receives 0 administrative permissions (FALSE)", () => {
+  test("PG-MEM SIMULATION: customer receives 0 administrative permissions (FALSE)", () => {
     setAuthUser(USER_CUSTOMER_A);
     expect(queryHasPermission("admin.dashboard.view", TENANT_A_ID)).toBe(false);
     expect(queryHasPermission("bookings.view", TENANT_A_ID)).toBe(false);
