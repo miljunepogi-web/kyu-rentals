@@ -140,21 +140,24 @@ BEGIN
     END IF;
 
     -- Check if user holds a role mapped to p_permission_key in role_permissions
+    -- RULE:
+    -- 1. super_admin has platform-wide permissions across any tenant or when p_tenant_id IS NULL.
+    -- 2. Non-super-admin roles MUST provide a valid non-null p_tenant_id matching ur.tenant_id.
+    -- 3. Inactive or deleted profiles fail closed.
     SELECT EXISTS (
         SELECT 1
         FROM public.user_roles ur
         JOIN public.roles r ON r.id = ur.role_id
         JOIN public.role_permissions rp ON rp.role_id = r.id
         JOIN public.permissions perm ON perm.id = rp.permission_id
-        JOIN public.profiles p ON p.id = ur.user_id
+        JOIN public.profiles p ON p.id = ur.user_id AND (LOWER(r.name::text) = 'super_admin' OR p.tenant_id = ur.tenant_id)
         WHERE ur.user_id = v_user_id
           AND p.is_active = TRUE
           AND p.is_deleted = FALSE
           AND LOWER(perm.action::text) = LOWER(p_permission_key)
           AND (
               LOWER(r.name::text) = 'super_admin'
-              OR p_tenant_id IS NULL
-              OR ur.tenant_id = p_tenant_id
+              OR (p_tenant_id IS NOT NULL AND ur.tenant_id = p_tenant_id)
           )
     ) INTO v_has_perm;
 
