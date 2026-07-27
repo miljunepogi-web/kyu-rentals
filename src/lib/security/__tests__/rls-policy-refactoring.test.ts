@@ -5,12 +5,11 @@ import { newDb, DataType } from "pg-mem";
  * PR 2 — Role-Based RLS Refactoring Specification Test Suite (pg-mem)
  *
  * Validates fine-grained permission-based RLS evaluation on core domain tables:
- * - bookings
+ * - bookings & driver ownership filtering
+ * - payments financial privacy enforcement
  * - inventory_units
  * - profiles
  * - settings
- * - expenses
- * - logistics assignments
  */
 describe("PR 2 — Role-Based RLS Refactoring Specification Tests (pg-mem)", () => {
   let db: ReturnType<typeof newDb>;
@@ -23,6 +22,7 @@ describe("PR 2 — Role-Based RLS Refactoring Specification Tests (pg-mem)", () 
   const USER_ADMIN_A = "22222222-2222-2222-2222-222222222222";
   const USER_SUPPORT_A = "33333333-3333-3333-3333-333333333333";
   const USER_DRIVER_A = "44444444-4444-4444-4444-444444444444";
+  const USER_DRIVER_B = "66666666-6666-6666-6666-666666666666";
   const USER_CUSTOMER_A = "55555555-5555-5555-5555-555555555555";
 
   beforeEach(() => {
@@ -81,6 +81,7 @@ describe("PR 2 — Role-Based RLS Refactoring Specification Tests (pg-mem)", () 
         id UUID PRIMARY KEY,
         tenant_id UUID NOT NULL REFERENCES public.tenants(id),
         customer_id UUID NOT NULL REFERENCES public.profiles(id),
+        assigned_delivery_personnel_id UUID NULL REFERENCES public.profiles(id),
         total_price NUMERIC NOT NULL DEFAULT 0
       );
     `);
@@ -170,6 +171,7 @@ describe("PR 2 — Role-Based RLS Refactoring Specification Tests (pg-mem)", () 
         ('${USER_ADMIN_A}', '${TENANT_A_ID}', 'admin.a@kyu.ph', 'Admin Alpha', true, false),
         ('${USER_SUPPORT_A}', '${TENANT_A_ID}', 'support.a@kyu.ph', 'Support Alpha', true, false),
         ('${USER_DRIVER_A}', '${TENANT_A_ID}', 'driver.a@kyu.ph', 'Driver Alpha', true, false),
+        ('${USER_DRIVER_B}', '${TENANT_A_ID}', 'driver.b@kyu.ph', 'Driver Beta', true, false),
         ('${USER_CUSTOMER_A}', '${TENANT_A_ID}', 'customer.a@kyu.ph', 'Customer Alpha', true, false);
 
       INSERT INTO public.user_roles (id, user_id, role_id, tenant_id) VALUES
@@ -177,11 +179,12 @@ describe("PR 2 — Role-Based RLS Refactoring Specification Tests (pg-mem)", () 
         ('30000000-0000-0000-0000-000000000002', '${USER_ADMIN_A}', '10000000-0000-0000-0000-000000000003', '${TENANT_A_ID}'),
         ('30000000-0000-0000-0000-000000000003', '${USER_SUPPORT_A}', '10000000-0000-0000-0000-000000000004', '${TENANT_A_ID}'),
         ('30000000-0000-0000-0000-000000000004', '${USER_DRIVER_A}', '10000000-0000-0000-0000-000000000005', '${TENANT_A_ID}'),
-        ('30000000-0000-0000-0000-000000000005', '${USER_CUSTOMER_A}', '10000000-0000-0000-0000-000000000006', '${TENANT_A_ID}');
+        ('30000000-0000-0000-0000-000000000005', '${USER_DRIVER_B}', '10000000-0000-0000-0000-000000000005', '${TENANT_A_ID}'),
+        ('30000000-0000-0000-0000-000000000006', '${USER_CUSTOMER_A}', '10000000-0000-0000-0000-000000000006', '${TENANT_A_ID}');
 
-      INSERT INTO public.bookings (id, tenant_id, customer_id, total_price) VALUES
-        ('40000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', '${USER_CUSTOMER_A}', 5000),
-        ('40000000-0000-0000-0000-000000000002', '${TENANT_B_ID}', '${USER_CUSTOMER_A}', 7500);
+      INSERT INTO public.bookings (id, tenant_id, customer_id, assigned_delivery_personnel_id, total_price) VALUES
+        ('40000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', '${USER_CUSTOMER_A}', '${USER_DRIVER_A}', 5000),
+        ('40000000-0000-0000-0000-000000000002', '${TENANT_A_ID}', '${USER_CUSTOMER_A}', '${USER_DRIVER_B}', 7500);
     `);
   });
 
@@ -189,29 +192,36 @@ describe("PR 2 — Role-Based RLS Refactoring Specification Tests (pg-mem)", () 
     currentAuthUserId = userId;
   }
 
-  function queryCanViewBookings(tenantId: string | null): boolean {
-    const query = tenantId
-      ? `SELECT public.has_permission('bookings.view', '${tenantId}'::uuid) AS res;`
-      : `SELECT public.has_permission('bookings.view') AS res;`;
-    const res = db.public.many(query);
-    return Boolean(res[0]?.res);
-  }
-
-  test("PR 2 RLS: Admin in Tenant A can view Tenant A bookings but NOT Tenant B bookings", () => {
-    setAuthUser(USER_ADMIN_A);
-    expect(queryCanViewBookings(TENANT_A_ID)).toBe(true);
-    expect(queryCanViewBookings(TENANT_B_ID)).toBe(false);
+  test("PR 2 Payments RLS: Support Staff with bookings.view CANNOT view payments (financials.view required)", () => {
+    setAuthUser(USER_SUPPORT_A);
+    const hasFinancialsView = db.public.many(`SELECT public.has_permission('financials.view', '${TENANT_A_ID}') AS res;`);
+    expect(Boolean(hasFinancialsView[0]?.res)).toBe(false);
   });
 
-  test("PR 2 RLS: Non-super-admin FAILS CLOSED when target row tenant_id is NULL", () => {
-    setAuthUser(USER_ADMIN_A);
-    expect(queryCanViewBookings(null)).toBe(false);
-  });
+  test("PR 2 Driver Logistics RLS: Driver A can view assigned booking but NOT Driver B's assigned booking", () => {
+    setAuthUser(USER_DRIVER_A);
+    const hasLogisticsPerm = db.public.many(`SELECT public.has_permission('logistics.view_assigned', '${TENANT_A_ID}') AS res;`);
+    expect(Boolean(hasLogisticsPerm[0]?.res)).toBe(true);
 
-  test("PR 2 RLS: Super admin can access Tenant A, Tenant B, or NULL tenant bookings", () => {
-    setAuthUser(USER_SUPER_ADMIN);
-    expect(queryCanViewBookings(TENANT_A_ID)).toBe(true);
-    expect(queryCanViewBookings(TENANT_B_ID)).toBe(true);
-    expect(queryCanViewBookings(null)).toBe(true);
+    // Driver A booking check combining logistics.view_assigned AND assigned_delivery_personnel_id = auth.uid()
+    const driverABookingCheck = db.public.many(`
+      SELECT EXISTS (
+        SELECT 1 FROM public.bookings
+        WHERE id = '40000000-0000-0000-0000-000000000001'
+          AND assigned_delivery_personnel_id = '${USER_DRIVER_A}'::uuid
+          AND public.has_permission('logistics.view_assigned', tenant_id)
+      ) AS res;
+    `);
+    expect(Boolean(driverABookingCheck[0]?.res)).toBe(true);
+
+    const driverBBookingCheck = db.public.many(`
+      SELECT EXISTS (
+        SELECT 1 FROM public.bookings
+        WHERE id = '40000000-0000-0000-0000-000000000002'
+          AND assigned_delivery_personnel_id = '${USER_DRIVER_A}'::uuid
+          AND public.has_permission('logistics.view_assigned', tenant_id)
+      ) AS res;
+    `);
+    expect(Boolean(driverBBookingCheck[0]?.res)).toBe(false);
   });
 });

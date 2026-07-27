@@ -4,9 +4,12 @@
 -- Purpose:
 --   1. Replace broad is_admin_staff_for_tenant() policy calls with fine-grained
 --      public.has_permission() RPC calls.
---   2. Enforce strict tenant isolation: non-super-admin checks MUST pass a valid,
+--   2. Restrict Payments SELECT strictly to financials.view (protect financial privacy).
+--   3. Enforce Driver Row Ownership: logistics.view_assigned MUST be combined
+--      with assigned_delivery_personnel_id = auth.uid().
+--   4. Enforce strict tenant isolation: non-super-admin checks MUST pass a valid,
 --      verified tenant_id from the target row.
---   3. Preserve customer self-service access and service_role bypasses.
+--   5. Preserve customer self-service access and service_role bypasses.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -39,6 +42,16 @@ CREATE POLICY "Staff view all bookings in tenant"
     TO authenticated
     USING (public.has_permission('bookings.view', tenant_id));
 
+DROP POLICY IF EXISTS "Drivers view assigned bookings" ON public.bookings;
+CREATE POLICY "Drivers view assigned bookings"
+    ON public.bookings
+    FOR SELECT
+    TO authenticated
+    USING (
+        assigned_delivery_personnel_id = auth.uid()
+        AND public.has_permission('logistics.view_assigned', tenant_id)
+    );
+
 DROP POLICY IF EXISTS "Staff update bookings in tenant" ON public.bookings;
 CREATE POLICY "Staff update bookings in tenant"
     ON public.bookings
@@ -47,15 +60,15 @@ CREATE POLICY "Staff update bookings in tenant"
     USING (public.has_permission('bookings.manage', tenant_id))
     WITH CHECK (public.has_permission('bookings.manage', tenant_id));
 
+-- Payments RLS: Financial privacy enforcement.
+-- bookings.view alone is NOT sufficient. Staff must possess financials.view permission.
+-- (Customer self-read is handled by "Customers view own payments" -> booking customer_id = auth.uid())
 DROP POLICY IF EXISTS "Staff view payments in tenant" ON public.payments;
 CREATE POLICY "Staff view payments in tenant"
     ON public.payments
     FOR SELECT
     TO authenticated
-    USING (
-        public.has_permission('financials.view', tenant_id)
-        OR public.has_permission('bookings.view', tenant_id)
-    );
+    USING (public.has_permission('financials.view', tenant_id));
 
 -- ----------------------------------------------------------------------------
 -- 3. INVENTORY & TIMELINE EVENTS
@@ -194,7 +207,7 @@ CREATE POLICY "Staff view promo redemptions in tenant"
     USING (public.has_permission('bookings.view', tenant_id));
 
 -- ----------------------------------------------------------------------------
--- 6. LOGISTICS, PROOF OF DELIVERY & INCIDENTS
+-- 6. LOGISTICS, PROOF OF DELIVERY & INCIDENTS (DRIVER ROW OWNERSHIP ENFORCED)
 -- ----------------------------------------------------------------------------
 
 DROP POLICY IF EXISTS "Staff view maintenance logs in tenant" ON public.inventory_maintenance_logs;
@@ -204,12 +217,25 @@ CREATE POLICY "Staff view maintenance logs in tenant"
     TO authenticated
     USING (public.has_permission('inventory.view', tenant_id));
 
+-- Driver logistics checks MUST combine logistics.view_assigned with assigned_delivery_personnel_id = auth.uid()
 DROP POLICY IF EXISTS "Staff view delivery assignment logs in tenant" ON public.delivery_assignment_logs;
 CREATE POLICY "Staff view delivery assignment logs in tenant"
     ON public.delivery_assignment_logs
     FOR SELECT
     TO authenticated
-    USING (public.has_permission('logistics.view_assigned', tenant_id));
+    USING (
+        public.has_permission('bookings.view', tenant_id)
+        OR (
+            public.has_permission('logistics.view_assigned', tenant_id)
+            AND (
+                assignee_id = auth.uid()
+                OR booking_id IN (
+                    SELECT id FROM public.bookings
+                    WHERE assigned_delivery_personnel_id = auth.uid()
+                )
+            )
+        )
+    );
 
 DROP POLICY IF EXISTS "Staff view delivery checklists in tenant" ON public.delivery_checklists;
 CREATE POLICY "Staff view delivery checklists in tenant"
@@ -217,8 +243,14 @@ CREATE POLICY "Staff view delivery checklists in tenant"
     FOR SELECT
     TO authenticated
     USING (
-        public.has_permission('logistics.view_assigned', tenant_id)
-        OR public.has_permission('bookings.view', tenant_id)
+        public.has_permission('bookings.view', tenant_id)
+        OR (
+            public.has_permission('logistics.view_assigned', tenant_id)
+            AND booking_id IN (
+                SELECT id FROM public.bookings
+                WHERE assigned_delivery_personnel_id = auth.uid()
+            )
+        )
     );
 
 DROP POLICY IF EXISTS "Staff view proof of deliveries" ON public.proof_of_deliveries;
@@ -227,8 +259,14 @@ CREATE POLICY "Staff view proof of deliveries in tenant"
     FOR SELECT
     TO authenticated
     USING (
-        public.has_permission('logistics.view_assigned', tenant_id)
-        OR public.has_permission('bookings.view', tenant_id)
+        public.has_permission('bookings.view', tenant_id)
+        OR (
+            public.has_permission('logistics.view_assigned', tenant_id)
+            AND booking_id IN (
+                SELECT id FROM public.bookings
+                WHERE assigned_delivery_personnel_id = auth.uid()
+            )
+        )
     );
 
 DROP POLICY IF EXISTS "Staff view pod photos in tenant" ON public.proof_of_delivery_photos;
@@ -237,8 +275,15 @@ CREATE POLICY "Staff view pod photos in tenant"
     FOR SELECT
     TO authenticated
     USING (
-        public.has_permission('logistics.view_assigned', tenant_id)
-        OR public.has_permission('bookings.view', tenant_id)
+        public.has_permission('bookings.view', tenant_id)
+        OR (
+            public.has_permission('logistics.view_assigned', tenant_id)
+            AND proof_of_delivery_id IN (
+                SELECT pod.id FROM public.proof_of_deliveries pod
+                JOIN public.bookings b ON b.id = pod.booking_id
+                WHERE b.assigned_delivery_personnel_id = auth.uid()
+            )
+        )
     );
 
 DROP POLICY IF EXISTS "Staff view incidents in tenant" ON public.incidents;
