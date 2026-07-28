@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { throwQueryError } from "@/queries/query-error";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,9 +72,12 @@ export async function getAdminInventoryUnits(
     query = query.eq("status", statusFilter);
   }
 
-  const { data, error } = query as unknown as { data: UnitRow[] | null; error: unknown };
+  const { data, error } = await query as unknown as { data: UnitRow[] | null; error: unknown };
 
-  if (error || !data) return [];
+  if (error) throwQueryError("admin.inventory.list", error);
+  if (!data) {
+    throwQueryError("admin.inventory.list", new Error("Inventory query returned no data"));
+  }
 
   return data.map((row) => ({
     id: row.id,

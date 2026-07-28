@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { getBookingCustomerContact } from "@/queries/booking-snapshot";
+import { calculateInventoryAvailability } from "@/queries/inventory-metrics";
 import { throwQueryError } from "@/queries/query-error";
 
 export interface ScheduleItem {
@@ -206,14 +207,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     throwQueryError("admin.dashboard.inventory", new Error("Dashboard inventory query returned no data"));
   }
 
-  const units = inventoryData || [];
-  const totalUnits = units.length || 5;
-  const availableUnits = units.filter((u: { status: string }) => u.status === "READY_TO_DEPLOY").length || 3;
-  const reservedUnits = units.filter((u: { status: string }) => u.status === "IN_USE").length || 1;
-  const maintenanceUnits = units.filter((u: { status: string }) => u.status === "UNDER_REPAIR").length || 0;
-
-  const utilizationPct = Math.round((reservedUnits / totalUnits) * 100) || 20;
-  const availablePct = Math.round((availableUnits / totalUnits) * 100) || 60;
+  const inventoryAvailability = calculateInventoryAvailability(inventoryData);
 
   // Booking health metrics
   const healthy = bookings.filter((b: { status: string }) =>
@@ -241,14 +235,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     activeRentals,
     totalRevenue,
     scheduleTimeline,
-    inventoryAvailability: {
-      totalUnits,
-      availableUnits,
-      reservedUnits,
-      maintenanceUnits,
-      utilizationPct,
-      availablePct,
-    },
+    inventoryAvailability,
     bookingHealth: {
       healthy,
       waitingPayment,
