@@ -27,8 +27,9 @@ WITH allowed_anon_select_tables(table_name) AS (
 )
 SELECT
     grants.table_name,
+    grants.column_name,
     grants.privilege_type
-FROM information_schema.role_table_grants grants
+FROM information_schema.column_privileges grants
 LEFT JOIN allowed_anon_select_tables allowed
     ON allowed.table_name = grants.table_name
 WHERE grants.table_schema = 'public'
