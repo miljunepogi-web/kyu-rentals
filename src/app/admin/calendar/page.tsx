@@ -26,6 +26,7 @@ export default function AdminCalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("MONTH");
   const [events, setEvents] = useState<AdminCalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>("ALL");
 
@@ -33,11 +34,14 @@ export default function AdminCalendarPage() {
   const month = currentDate.getMonth() + 1; // 1-indexed
 
   const loadEvents = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
     try {
       const data = await getAdminCalendarEvents(year, month);
       setEvents(data);
     } catch {
       setEvents([]);
+      setErrorMessage("Could not load the schedule. Try refreshing.");
     } finally {
       setIsLoading(false);
     }
@@ -47,10 +51,16 @@ export default function AdminCalendarPage() {
     let isMounted = true;
     getAdminCalendarEvents(year, month)
       .then((data) => {
-        if (isMounted) setEvents(data);
+        if (isMounted) {
+          setEvents(data);
+          setErrorMessage(null);
+        }
       })
       .catch(() => {
-        if (isMounted) setEvents([]);
+        if (isMounted) {
+          setEvents([]);
+          setErrorMessage("Could not load the schedule. Try refreshing.");
+        }
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
@@ -150,6 +160,19 @@ export default function AdminCalendarPage() {
           </Button>
         </div>
       </div>
+
+      {errorMessage && (
+        <div role="alert" className="flex flex-col gap-3 border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadEvents} disabled={isLoading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Toolbar Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border rounded-2xl p-4 shadow-xs">

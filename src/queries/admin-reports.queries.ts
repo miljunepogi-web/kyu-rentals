@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { throwQueryError } from "@/queries/query-error";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,17 +45,20 @@ export interface PackageUtilizationMetric {
  */
 async function resolveTenantId(): Promise<string | null> {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throwQueryError("admin.reports.resolve-user", userError);
   if (!user) return null;
 
   type ProfileRow = { tenant_id: string };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile, error: profileError } = await (supabase as any)
     .from("profiles")
     .select("tenant_id")
     .eq("id", user.id)
     .eq("is_deleted", false)
-    .maybeSingle() as { data: ProfileRow | null };
+    .maybeSingle() as { data: ProfileRow | null; error: unknown };
+
+  if (profileError) throwQueryError("admin.reports.resolve-tenant", profileError);
 
   return profile?.tenant_id || null;
 }
@@ -84,7 +88,10 @@ export async function getAdminFinancialReport(): Promise<AdminFinancialReport> {
     { p_tenant_id: tenantId }
   );
 
-  if (rpcError || !rpcResult) return emptyReport;
+  if (rpcError) throwQueryError("admin.reports.financial", rpcError);
+  if (!rpcResult) {
+    throwQueryError("admin.reports.financial", new Error("Financial report RPC returned no data"));
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = rpcResult as any;
@@ -124,7 +131,10 @@ export async function getAdminOperationalFunnel(): Promise<OperationalFunnelMetr
     { p_tenant_id: tenantId }
   );
 
-  if (rpcError || !rpcResult) return emptyFunnel;
+  if (rpcError) throwQueryError("admin.reports.operational-funnel", rpcError);
+  if (!rpcResult) {
+    throwQueryError("admin.reports.operational-funnel", new Error("Operational funnel RPC returned no data"));
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = rpcResult as any;
@@ -153,7 +163,10 @@ export async function getAdminPackageUtilization(): Promise<PackageUtilizationMe
     { p_tenant_id: tenantId }
   );
 
-  if (rpcError || !rpcResult || !Array.isArray(rpcResult)) return [];
+  if (rpcError) throwQueryError("admin.reports.package-utilization", rpcError);
+  if (!Array.isArray(rpcResult)) {
+    throwQueryError("admin.reports.package-utilization", new Error("Package utilization RPC returned invalid data"));
+  }
 
   interface RawPackageUtilizationRecord {
     package_id: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   AdminFinancialReport,
   OperationalFunnelMetric,
@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Layers,
+  RefreshCw,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function AdminReportsPage() {
   const [financial, setFinancial] = useState<AdminFinancialReport>({
@@ -44,6 +46,26 @@ export default function AdminReportsPage() {
 
   const [utilization, setUtilization] = useState<PackageUtilizationMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadReports = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const [finData, funnelData, utilData] = await Promise.all([
+        getAdminFinancialReport(),
+        getAdminOperationalFunnel(),
+        getAdminPackageUtilization(),
+      ]);
+      setFinancial(finData);
+      setFunnel(funnelData);
+      setUtilization(utilData);
+    } catch {
+      setErrorMessage("Could not load analytics. Try refreshing.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -51,14 +73,21 @@ export default function AdminReportsPage() {
       getAdminFinancialReport(),
       getAdminOperationalFunnel(),
       getAdminPackageUtilization(),
-    ]).then(([finData, funnelData, utilData]) => {
-      if (isMounted) {
-        setFinancial(finData);
-        setFunnel(funnelData);
-        setUtilization(utilData);
-        setIsLoading(false);
-      }
-    });
+    ])
+      .then(([finData, funnelData, utilData]) => {
+        if (isMounted) {
+          setFinancial(finData);
+          setFunnel(funnelData);
+          setUtilization(utilData);
+          setErrorMessage(null);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setErrorMessage("Could not load analytics. Try refreshing.");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
     return () => { isMounted = false; };
   }, []);
@@ -74,6 +103,19 @@ export default function AdminReportsPage() {
           PostgreSQL-aggregated financial metrics, operational funnel status, and package utilization insights.
         </p>
       </div>
+
+      {errorMessage && (
+        <div role="alert" className="flex flex-col gap-3 border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadReports} disabled={isLoading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Financial KPIs Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

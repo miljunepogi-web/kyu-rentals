@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { throwQueryError } from "@/queries/query-error";
 
 export interface ScheduleItem {
   id: string;
@@ -124,7 +125,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 
   // Fetch bookings data using existing columns
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bookingsData } = await (supabase.from("bookings") as any)
+  const { data: bookingsData, error: bookingsError } = await (supabase.from("bookings") as any)
     .select(`
       id, public_id, status, event_date, start_time, grand_total, deposit_amount, balance_amount, delivery_zone,
       profiles!customer_id (full_name),
@@ -132,6 +133,11 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
       assigned_personnel:profiles!assigned_delivery_personnel_id (full_name)
     `)
     .eq("is_deleted", false);
+
+  if (bookingsError) throwQueryError("admin.dashboard.bookings", bookingsError);
+  if (!bookingsData) {
+    throwQueryError("admin.dashboard.bookings", new Error("Dashboard bookings query returned no data"));
+  }
 
   const bookings = bookingsData || [];
 
@@ -183,10 +189,15 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   }));
 
   // Inventory availability & utilization percentages
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inventoryData } = await (supabase.from("inventory_units") as any)
+  const { data: inventoryData, error: inventoryError } = await supabase
+    .from("inventory_units")
     .select("status")
     .eq("is_deleted", false);
+
+  if (inventoryError) throwQueryError("admin.dashboard.inventory", inventoryError);
+  if (!inventoryData) {
+    throwQueryError("admin.dashboard.inventory", new Error("Dashboard inventory query returned no data"));
+  }
 
   const units = inventoryData || [];
   const totalUnits = units.length || 5;
@@ -269,9 +280,8 @@ export async function getAdminBookings(
 
   const { data, error } = await query;
 
-  if (error || !data) {
-    return [];
-  }
+  if (error) throwQueryError("admin.bookings.list", error);
+  if (!data) throwQueryError("admin.bookings.list", new Error("Bookings query returned no data"));
 
   interface RawAdminBookingRow {
     id: string;
@@ -323,9 +333,8 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
     .eq("is_deleted", false)
     .single();
 
-  if (error || !b) {
-    return null;
-  }
+  if (error) throwQueryError("admin.bookings.detail", error);
+  if (!b) return null;
 
   // Fetch related payments
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
