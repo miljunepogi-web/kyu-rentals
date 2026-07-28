@@ -638,7 +638,7 @@ export function AdminBookingDetailSheet({
               {/* 5. Equipment & Driver Allocation */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Unit Allocation */}
-                <div className="rounded-2xl border bg-secondary/30 p-4 space-y-2 text-xs">
+                <div className="min-w-0 rounded-2xl border bg-secondary/30 p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground font-bold flex items-center gap-1.5">
                       <Box className="h-3.5 w-3.5 text-primary" /> Assigned Unit
@@ -673,11 +673,11 @@ export function AdminBookingDetailSheet({
                       ) : availableUnits.length === 0 ? (
                         <span className="text-[11px] text-amber-600 font-semibold block">No READY_TO_DEPLOY units available for this package.</span>
                       ) : (
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                           <select
                             value={selectedUnitToAssign}
                             onChange={(e) => setSelectedUnitToAssign(e.target.value)}
-                            className="h-8 text-[11px] font-bold rounded-lg border bg-background px-2 flex-1"
+                            className="h-8 min-w-0 w-full text-[11px] font-bold rounded-lg border bg-background px-2"
                           >
                             <option value="">Select Unit Serial...</option>
                             {availableUnits.map((u) => (
@@ -703,7 +703,7 @@ export function AdminBookingDetailSheet({
                                 setErrorMsg(res.error || "Failed to assign unit");
                               }
                             }}
-                            className="h-8 text-[11px] font-bold px-3"
+                            className="h-8 shrink-0 text-[11px] font-bold px-3"
                           >
                             Assign
                           </Button>
@@ -714,7 +714,7 @@ export function AdminBookingDetailSheet({
                 </div>
 
                 {/* Driver Allocation */}
-                <div className="rounded-2xl border bg-secondary/30 p-4 space-y-2 text-xs">
+                <div className="min-w-0 rounded-2xl border bg-secondary/30 p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground font-bold flex items-center gap-1.5">
                       <Truck className="h-3.5 w-3.5 text-primary" /> Assigned Driver
@@ -731,11 +731,11 @@ export function AdminBookingDetailSheet({
 
                   {/* Inline Driver Selection */}
                   <div className="pt-1">
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                       <select
                         value={selectedDriverToAssign}
                         onChange={(e) => setSelectedDriverToAssign(e.target.value)}
-                        className="h-8 text-[11px] font-bold rounded-lg border bg-background px-2 flex-1"
+                        className="h-8 min-w-0 w-full text-[11px] font-bold rounded-lg border bg-background px-2"
                       >
                         <option value="">Select Driver...</option>
                         {deliveryTeam.map((m) => (
@@ -764,7 +764,7 @@ export function AdminBookingDetailSheet({
                             setErrorMsg(res.error || "Failed to assign driver");
                           }
                         }}
-                        className="h-8 text-[11px] font-bold px-3"
+                        className="h-8 shrink-0 text-[11px] font-bold px-3"
                       >
                         Set
                       </Button>
