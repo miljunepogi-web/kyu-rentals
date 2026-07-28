@@ -276,6 +276,7 @@ export function AdminBookingDetailSheet({
                       onClick={() => handleCopy(detail.publicId, "Booking Reference")}
                       className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
                       title="Copy Reference"
+                      aria-label="Copy Booking Reference"
                     >
                       {copiedField === "Booking Reference" ? (
                         <Check className="h-4 w-4 text-emerald-500" />
@@ -378,6 +379,7 @@ export function AdminBookingDetailSheet({
                         onClick={() => handleCopy(detail.customerPhone, "Phone Number")}
                         className="text-muted-foreground hover:text-foreground p-0.5"
                         title="Copy Phone"
+                        aria-label="Copy Phone Number"
                       >
                         {copiedField === "Phone Number" ? (
                           <Check className="h-3 w-3 text-emerald-500" />

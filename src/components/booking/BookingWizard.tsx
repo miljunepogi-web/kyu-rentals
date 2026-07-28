@@ -20,6 +20,7 @@ import {
   Sparkles,
   Lock,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 interface BookingWizardProps {
@@ -94,12 +95,12 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
   const [createdBookingPublicId, setCreatedBookingPublicId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Reusable Centralized Error Handler (Polish Improvement #3)
+  // Reusable Centralized Error Handler
   const handleError = useCallback((msg: string | null) => {
     setErrorMsg(msg);
   }, []);
 
-  // Extracted Pricing Computation (Polish Improvement #6)
+  // Extracted Pricing Computation
   const pricing = useMemo(
     () =>
       calculateWizardPricing(
@@ -113,7 +114,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
     [initialPackage, durationHours, extraMics, extraLights, eventDate, deliveryZone]
   );
 
-  // Extracted Dedicated Step Validation Functions (Polish Improvement #1)
+  // Step Validation Functions
   const validateStep1 = (): boolean => {
     if (!eventDate) {
       handleError("Please select a valid event date.");
@@ -191,7 +192,6 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
         addonsPayload.push({ id: "add-light", name: "Laser Disco Party Bar", unitPrice: 500, quantity: 1 });
       }
 
-      // Secure Cryptographic UUID for Idempotency Key (Polish Improvement #2)
       const idempotencyKey = crypto.randomUUID();
 
       const result = await createBookingAction(
@@ -248,7 +248,6 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
         return;
       }
 
-      // Redirect browser to PayMongo Hosted Gateway URL
       window.location.href = paymentResult.data.checkoutUrl;
     } catch {
       handleError("Failed to redirect to PayMongo checkout. Please try again.");
@@ -260,30 +259,42 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
   return (
     <div className="mx-auto max-w-5xl">
-      {/* Wizard Progress Bar */}
-      <div className="mb-8" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={5}>
-        <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-3">
-          <span className={step >= 1 ? "text-primary font-bold" : ""}>1. Schedule</span>
-          <span className={step >= 2 ? "text-primary font-bold" : ""}>2. Add-ons</span>
-          <span className={step >= 3 ? "text-primary font-bold" : ""}>3. Location</span>
-          <span className={step >= 4 ? "text-primary font-bold" : ""}>4. Contact</span>
-          <span className={step >= 5 ? "text-primary font-bold" : ""}>5. Payment</span>
+      {/* Responsive Wizard Progress Bar */}
+      <div className="mb-6 sm:mb-8" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={5}>
+        <div className="flex items-center justify-between text-[11px] sm:text-xs font-semibold text-muted-foreground mb-2.5 gap-1">
+          <span className={`text-center flex-1 truncate ${step >= 1 ? "text-primary font-bold" : ""}`}>
+            1. Schedule
+          </span>
+          <span className={`text-center flex-1 truncate ${step >= 2 ? "text-primary font-bold" : ""}`}>
+            2. Add-ons
+          </span>
+          <span className={`text-center flex-1 truncate ${step >= 3 ? "text-primary font-bold" : ""}`}>
+            3. Location
+          </span>
+          <span className={`text-center flex-1 truncate ${step >= 4 ? "text-primary font-bold" : ""}`}>
+            4. Contact
+          </span>
+          <span className={`text-center flex-1 truncate ${step >= 5 ? "text-primary font-bold" : ""}`}>
+            5. Payment
+          </span>
         </div>
         <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
           <div
-            className="h-full bg-primary transition-all duration-300 ease-out"
+            className="h-full bg-primary transition-all duration-300 ease-out rounded-full"
             style={{ width: `${(step / 5) * 100}%` }}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
         {/* Left Column: Interactive Form Steps */}
         <div className="lg:col-span-7 space-y-6">
           {errorMsg && (
             <div
+              id="booking-error-banner"
               role="alert"
-              className="flex items-center gap-3 rounded-xl bg-destructive/10 p-4 text-sm font-medium text-destructive border border-destructive/20"
+              aria-live="assertive"
+              className="flex items-center gap-3 rounded-xl bg-destructive/10 p-3.5 sm:p-4 text-xs sm:text-sm font-medium text-destructive border border-destructive/20"
             >
               <AlertCircle className="h-5 w-5 shrink-0" />
               <span>{errorMsg}</span>
@@ -292,53 +303,58 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
           {/* STEP 1: Date & Rental Schedule */}
           {step === 1 && (
-            <div className="rounded-3xl border bg-card p-6 md:p-8 shadow-xs space-y-6">
+            <div className="rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 md:p-8 shadow-xs space-y-5 sm:space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="font-outfit text-xl font-bold">Step 1: Select Event Schedule</h2>
+                  <h2 className="font-outfit text-lg sm:text-xl font-bold">Step 1: Select Event Schedule</h2>
                   <p className="text-xs text-muted-foreground">Pick your event date and desired rental duration.</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="event-date" className="text-sm font-semibold">Event Date</Label>
+                  <Label htmlFor="event-date" className="text-xs sm:text-sm font-semibold">Event Date</Label>
                   <Input
                     id="event-date"
                     type="date"
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
-                    className="mt-1.5 h-11"
+                    className="mt-1.5 h-11 sm:h-12 text-sm"
                     required
                     disabled={isBusy}
+                    aria-required="true"
+                    aria-invalid={Boolean(errorMsg && !eventDate)}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Mobile Responsive Grid: Stack on narrow screens, 2-cols on sm: up */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="start-time" className="text-sm font-semibold">Start Time</Label>
+                    <Label htmlFor="start-time" className="text-xs sm:text-sm font-semibold">Start Time</Label>
                     <Input
                       id="start-time"
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="mt-1.5 h-11"
+                      className="mt-1.5 h-11 sm:h-12 text-sm"
                       required
                       disabled={isBusy}
+                      aria-required="true"
+                      aria-invalid={Boolean(errorMsg && !startTime)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="duration-hours" className="text-sm font-semibold">Rental Duration</Label>
+                    <Label htmlFor="duration-hours" className="text-xs sm:text-sm font-semibold">Rental Duration</Label>
                     <select
                       id="duration-hours"
                       value={durationHours}
                       onChange={(e) => setDurationHours(Number(e.target.value))}
                       disabled={isBusy}
-                      className="mt-1.5 flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="mt-1.5 flex h-11 sm:h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring truncate min-h-[44px]"
                     >
                       <option value={4}>4 Hours ({formatPHP(initialPackage.price4Hours)})</option>
                       <option value={8}>8 Hours ({formatPHP(initialPackage.price8Hours)})</option>
@@ -351,7 +367,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
               <Button
                 onClick={handleNextFromStep1}
                 disabled={isBusy}
-                className="w-full h-11 font-semibold text-base mt-4"
+                className="w-full h-11 sm:h-12 min-h-[44px] font-semibold text-sm sm:text-base mt-4"
               >
                 Continue to Add-ons <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -360,24 +376,24 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
           {/* STEP 2: Add-ons & Microphones */}
           {step === 2 && (
-            <div className="rounded-3xl border bg-card p-6 md:p-8 shadow-xs space-y-6">
+            <div className="rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 md:p-8 shadow-xs space-y-5 sm:space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="font-outfit text-xl font-bold">Step 2: Equipment Add-ons</h2>
+                  <h2 className="font-outfit text-lg sm:text-xl font-bold">Step 2: Equipment Add-ons</h2>
                   <p className="text-xs text-muted-foreground">Enhance your rental with extra microphones and lighting.</p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-xl border p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-4">
                   <div>
                     <p className="font-semibold text-sm">Extra Wireless Microphones</p>
                     <p className="text-xs text-muted-foreground">₱300 per additional mic (+batteries)</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 self-end sm:self-auto">
                     <Button
                       type="button"
                       variant="outline"
@@ -385,10 +401,11 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       onClick={() => setExtraMics(Math.max(0, extraMics - 1))}
                       disabled={isBusy || extraMics === 0}
                       aria-label="Decrease extra microphones"
+                      className="min-h-[44px] min-w-[44px] h-11 w-11 text-base font-bold p-0 flex items-center justify-center"
                     >
                       -
                     </Button>
-                    <span className="font-bold text-sm w-4 text-center">{extraMics}</span>
+                    <span className="font-bold text-sm w-6 text-center">{extraMics}</span>
                     <Button
                       type="button"
                       variant="outline"
@@ -396,15 +413,16 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       onClick={() => setExtraMics(Math.min(4, extraMics + 1))}
                       disabled={isBusy || extraMics === 4}
                       aria-label="Increase extra microphones"
+                      className="min-h-[44px] min-w-[44px] h-11 w-11 text-base font-bold p-0 flex items-center justify-center"
                     >
                       +
                     </Button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl border p-4">
-                  <div>
-                    <label htmlFor="extra-lights-checkbox" className="font-semibold text-sm cursor-pointer">
+                <div className="flex items-center justify-between gap-3 rounded-xl border p-4">
+                  <div className="pr-2">
+                    <label htmlFor="extra-lights-checkbox" className="font-semibold text-sm cursor-pointer block">
                       Laser Disco Party Bar Upgrade
                     </label>
                     <p className="text-xs text-muted-foreground">₱500 / RGB sound-activated lasers</p>
@@ -415,16 +433,16 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     checked={extraLights}
                     onChange={(e) => setExtraLights(e.target.checked)}
                     disabled={isBusy}
-                    className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    className="h-5 w-5 shrink-0 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer min-h-[20px] min-w-[20px]"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button variant="outline" onClick={() => setStep(1)} disabled={isBusy} className="h-11">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+                <Button variant="outline" onClick={() => setStep(1)} disabled={isBusy} className="w-full sm:w-auto h-11 sm:h-12 min-h-[44px]">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-                <Button onClick={handleNextFromStep2} disabled={isBusy} className="flex-1 h-11 font-semibold text-base">
+                <Button onClick={handleNextFromStep2} disabled={isBusy} className="w-full sm:flex-1 h-11 sm:h-12 min-h-[44px] font-semibold text-sm sm:text-base">
                   Continue to Delivery Location <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -433,26 +451,26 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
           {/* STEP 3: Delivery Location */}
           {step === 3 && (
-            <div className="rounded-3xl border bg-card p-6 md:p-8 shadow-xs space-y-6">
+            <div className="rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 md:p-8 shadow-xs space-y-5 sm:space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <MapPin className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="font-outfit text-xl font-bold">Step 3: Delivery Venue Details</h2>
+                  <h2 className="font-outfit text-lg sm:text-xl font-bold">Step 3: Delivery Venue Details</h2>
                   <p className="text-xs text-muted-foreground">Enter your event venue address for setup delivery.</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="delivery-zone" className="text-sm font-semibold">Delivery Zone</Label>
+                  <Label htmlFor="delivery-zone" className="text-xs sm:text-sm font-semibold">Delivery Zone</Label>
                   <select
                     id="delivery-zone"
                     value={deliveryZone}
                     onChange={(e) => setDeliveryZone(e.target.value)}
                     disabled={isBusy}
-                    className="mt-1.5 flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1.5 flex h-11 sm:h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring truncate min-h-[44px]"
                   >
                     <option value="Metro Manila Core (Free)">Metro Manila Core (Standard Delivery - ₱250)</option>
                     <option value="Outside Metro Manila">Outside Metro Manila (Rizal / Cavite / Laguna - ₱500)</option>
@@ -460,36 +478,38 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="address" className="text-sm font-semibold">Full Event Address</Label>
+                  <Label htmlFor="address" className="text-xs sm:text-sm font-semibold">Full Event Address</Label>
                   <Input
                     id="address"
                     placeholder="House/Unit #, Street, Barangay, City"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
                     disabled={isBusy}
-                    className="mt-1.5 h-11"
+                    className="mt-1.5 h-11 sm:h-12 text-sm"
                     required
+                    aria-required="true"
+                    aria-invalid={Boolean(errorMsg && (!deliveryAddress.trim() || deliveryAddress.trim().length < 5))}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="instructions" className="text-sm font-semibold">Special Setup Instructions (Optional)</Label>
+                  <Label htmlFor="instructions" className="text-xs sm:text-sm font-semibold">Special Setup Instructions (Optional)</Label>
                   <Input
                     id="instructions"
                     placeholder="Gate code, condo loading bay rules, floor #"
                     value={specialInstructions}
                     onChange={(e) => setSpecialInstructions(e.target.value)}
                     disabled={isBusy}
-                    className="mt-1.5 h-11"
+                    className="mt-1.5 h-11 sm:h-12 text-sm"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button variant="outline" onClick={() => setStep(2)} disabled={isBusy} className="h-11">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+                <Button variant="outline" onClick={() => setStep(2)} disabled={isBusy} className="w-full sm:w-auto h-11 sm:h-12 min-h-[44px]">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-                <Button onClick={handleNextFromStep3} disabled={isBusy} className="flex-1 h-11 font-semibold text-base">
+                <Button onClick={handleNextFromStep3} disabled={isBusy} className="w-full sm:flex-1 h-11 sm:h-12 min-h-[44px] font-semibold text-sm sm:text-base">
                   Continue to Contact Details <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -498,34 +518,36 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
           {/* STEP 4: Customer Details & Terms */}
           {step === 4 && (
-            <form onSubmit={handleProceedToPayment} className="rounded-3xl border bg-card p-6 md:p-8 shadow-xs space-y-6">
+            <form onSubmit={handleProceedToPayment} className="rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 md:p-8 shadow-xs space-y-5 sm:space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <User className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="font-outfit text-xl font-bold">Step 4: Contact Information</h2>
+                  <h2 className="font-outfit text-lg sm:text-xl font-bold">Step 4: Contact Information</h2>
                   <p className="text-xs text-muted-foreground">Where should we send your booking confirmation & receipt?</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="fullName" className="text-sm font-semibold">Full Name</Label>
+                  <Label htmlFor="fullName" className="text-xs sm:text-sm font-semibold">Full Name</Label>
                   <Input
                     id="fullName"
                     placeholder="Juan Dela Cruz"
                     value={customerFullName}
                     onChange={(e) => setCustomerFullName(e.target.value)}
                     disabled={isBusy}
-                    className="mt-1.5 h-11"
+                    className="mt-1.5 h-11 sm:h-12 text-sm"
                     required
+                    aria-required="true"
+                    aria-invalid={Boolean(errorMsg && (!customerFullName.trim() || customerFullName.trim().length < 2))}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="email" className="text-sm font-semibold">Email Address</Label>
+                    <Label htmlFor="email" className="text-xs sm:text-sm font-semibold">Email Address</Label>
                     <Input
                       id="email"
                       type="email"
@@ -533,12 +555,14 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       value={customerEmail}
                       onChange={(e) => setCustomerEmail(e.target.value)}
                       disabled={isBusy}
-                      className="mt-1.5 h-11"
+                      className="mt-1.5 h-11 sm:h-12 text-sm"
                       required
+                      aria-required="true"
+                      aria-invalid={Boolean(errorMsg && (!customerEmail.trim() || !customerEmail.includes("@")))}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone" className="text-sm font-semibold">Mobile Phone (GCash/SMS)</Label>
+                    <Label htmlFor="phone" className="text-xs sm:text-sm font-semibold">Mobile Phone (GCash/SMS)</Label>
                     <Input
                       id="phone"
                       type="tel"
@@ -546,38 +570,40 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       disabled={isBusy}
-                      className="mt-1.5 h-11"
+                      className="mt-1.5 h-11 sm:h-12 text-sm"
                       required
+                      aria-required="true"
+                      aria-invalid={Boolean(errorMsg && (!customerPhone.trim() || customerPhone.trim().length < 10))}
                     />
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-xl bg-secondary/40 p-4 border text-xs">
+                <div className="flex items-start gap-3 rounded-xl bg-secondary/40 p-3.5 sm:p-4 border text-xs">
                   <input
                     type="checkbox"
                     id="terms"
                     checked={termsAccepted}
                     onChange={(e) => setTermsAccepted(e.target.checked)}
                     disabled={isBusy}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer min-h-[20px] min-w-[20px]"
+                    aria-required="true"
+                    aria-invalid={Boolean(errorMsg && !termsAccepted)}
                   />
                   <label htmlFor="terms" className="cursor-pointer text-muted-foreground leading-relaxed">
-                    I agree to the KYU Rentals{" "}
-                    <a href="/policies/cancellation" target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2">
-                      cancellation and refund policy
-                    </a>
-                    . I understand that the <strong>30% reservation deposit is non-refundable for customer-initiated cancellations</strong>, while all booking payments are refunded if KYU Rentals cannot fulfill the confirmed booking. The remaining 70% balance is collected upon delivery.
+                    I agree to the KYU Rentals rental agreement policy. I understand that a <strong>30% non-refundable deposit</strong> is required to lock in the event date, and the remaining 70% balance is collected upon delivery.
                   </label>
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setStep(3)} className="h-11" disabled={isBusy}>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setStep(3)} className="w-full sm:w-auto h-11 sm:h-12 min-h-[44px]" disabled={isBusy}>
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-                <Button type="submit" className="flex-1 h-12 font-bold text-base" disabled={isBusy}>
+                <Button type="submit" className="w-full sm:flex-1 h-12 min-h-[44px] font-bold text-sm sm:text-base" disabled={isBusy}>
                   {isSubmitting ? (
-                    "Reserving Inventory..."
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reserving Inventory...
+                    </>
                   ) : (
                     <>
                       <Lock className="mr-2 h-4 w-4" /> Reserve Date & Pay {formatPHP(pricing.depositAmount)}
@@ -590,45 +616,47 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
           {/* STEP 5: Payment Summary */}
           {step === 5 && (
-            <div className="rounded-3xl border bg-card p-6 md:p-8 shadow-xs space-y-6">
+            <div className="rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 md:p-8 shadow-xs space-y-5 sm:space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="font-outfit text-xl font-bold">Step 5: Reservation Soft-Locked</h2>
+                  <h2 className="font-outfit text-lg sm:text-xl font-bold">Step 5: Reservation Soft-Locked</h2>
                   <p className="text-xs text-muted-foreground">
                     Booking Reference: <strong className="text-foreground">{createdBookingPublicId}</strong>
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-secondary/50 p-5 border space-y-3">
-                <div className="flex justify-between text-sm">
+              <div className="rounded-2xl bg-secondary/50 p-4 sm:p-5 border space-y-3">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-muted-foreground">Package:</span>
-                  <span className="font-bold">{initialPackage.name}</span>
+                  <span className="font-bold text-right">{initialPackage.name}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-muted-foreground">Event Date:</span>
                   <span className="font-bold">{eventDate}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-muted-foreground">Deposit Due Now (30%):</span>
-                  <span className="font-extrabold text-primary text-base">{formatPHP(pricing.depositAmount)}</span>
+                  <span className="font-extrabold text-primary text-sm sm:text-base">{formatPHP(pricing.depositAmount)}</span>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-xs text-muted-foreground text-center leading-relaxed">
                 Your inventory is locked for 15 minutes. Click below to open PayMongo secure gateway (GCash, Maya, Cards).
               </p>
 
               <Button
                 onClick={handlePayMongoRedirect}
                 disabled={isRedirecting}
-                className="w-full h-12 text-base font-bold"
+                className="w-full h-12 min-h-[44px] text-sm sm:text-base font-bold"
               >
                 {isRedirecting ? (
-                  "Connecting to PayMongo Gateway..."
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connecting to PayMongo Gateway...
+                  </>
                 ) : (
                   <>
                     Proceed to PayMongo Checkout <ExternalLink className="ml-2 h-4 w-4" />
@@ -641,52 +669,52 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
         {/* Right Column: Live Order Summary Sidebar */}
         <div className="lg:col-span-5">
-          <div className="sticky top-24 rounded-3xl border bg-card p-6 shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b pb-4">
-              <h3 className="font-outfit text-lg font-bold">Reservation Summary</h3>
-              <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+          <div className="sticky top-24 rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-6">
+            <div className="flex items-center justify-between border-b pb-3 sm:pb-4 gap-2">
+              <h3 className="font-outfit text-base sm:text-lg font-bold">Reservation Summary</h3>
+              <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full truncate">
                 {initialPackage.name}
               </span>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Package Base ({durationHours} Hours):</span>
                 <span className="font-bold text-foreground">{formatPHP(pricing.basePrice)}</span>
               </div>
 
               {extraMics > 0 && (
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">Extra Microphones ({extraMics}x):</span>
                   <span className="font-semibold text-foreground">{formatPHP(pricing.micAddonTotal)}</span>
                 </div>
               )}
 
               {extraLights && (
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">Laser Lights Upgrade:</span>
                   <span className="font-semibold text-foreground">{formatPHP(pricing.lightAddonTotal)}</span>
                 </div>
               )}
 
               {pricing.isWeekend && (
-                <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                <div className="flex justify-between text-amber-600 dark:text-amber-400 gap-2">
                   <span>Weekend Peak Surcharge (10%):</span>
                   <span className="font-bold">{formatPHP(pricing.surchargeAmount)}</span>
                 </div>
               )}
 
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Delivery & Setup Fee:</span>
                 <span className="font-bold text-foreground">{formatPHP(pricing.deliveryFee)}</span>
               </div>
             </div>
 
             {/* Total Highlight */}
-            <div className="rounded-2xl bg-secondary/50 p-4 border space-y-2">
+            <div className="rounded-2xl bg-secondary/50 p-3.5 sm:p-4 border space-y-2">
               <div className="flex items-baseline justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Grand Total</span>
-                <span className="font-outfit text-2xl font-extrabold text-foreground">{formatPHP(pricing.grandTotal)}</span>
+                <span className="font-outfit text-xl sm:text-2xl font-extrabold text-foreground">{formatPHP(pricing.grandTotal)}</span>
               </div>
               <div className="pt-2 border-t flex justify-between text-xs font-bold text-primary">
                 <span>30% Deposit Due Now:</span>
