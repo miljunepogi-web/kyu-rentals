@@ -137,4 +137,42 @@ describe("createBookingAction", () => {
       })
     );
   });
+
+  test("does not leave a processing idempotency key when package validation fails", async () => {
+    let packageRead = 0;
+    mocks.publicFrom.mockImplementation((table: string) => {
+      if (table !== "packages") {
+        throw new Error(`Public client unexpectedly accessed ${table}`);
+      }
+
+      packageRead += 1;
+      return packageRead === 1
+        ? queryReturning({ data: { tenant_id: "tenant-1" } })
+        : queryReturning({ data: null, error: null });
+    });
+
+    const result = await createBookingAction(
+      {
+        packageSlug: "missing-package",
+        eventDate: "2026-08-15",
+        startTime: "14:00",
+        durationHours: 4,
+        deliveryAddress: "123 QA Street, Quezon City",
+        deliveryZone: "METRO_MANILA",
+        customerFullName: "KYU E2E Test",
+        customerEmail: "test@example.com",
+        customerPhone: "09171234567",
+        addons: [],
+      },
+      "failed-booking-test-key"
+    );
+
+    const idempotencyCalls = mocks.adminFrom.mock.calls.filter(
+      ([table]) => table === "idempotency_keys"
+    );
+
+    expect(result.success).toBe(false);
+    expect(idempotencyCalls).toHaveLength(1);
+    expect(mocks.adminRpc).not.toHaveBeenCalled();
+  });
 });
