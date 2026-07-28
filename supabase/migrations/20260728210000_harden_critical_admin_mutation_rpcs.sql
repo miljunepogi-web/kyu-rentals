@@ -242,8 +242,9 @@ DECLARE
     v_booking_public_id TEXT;
     v_is_valid_transition BOOLEAN := FALSE;
     v_rows_affected INTEGER;
+    v_event_label TEXT;
 BEGIN
-    IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    IF COALESCE(auth.jwt() ->> 'role', '') <> 'service_role' THEN
         IF v_caller_uid IS NULL THEN
             RAISE EXCEPTION 'Authorization failed: No authenticated session found';
         END IF;
@@ -316,6 +317,33 @@ BEGIN
             v_booking_public_id, v_current_status, p_target_status;
     END IF;
 
+    IF v_current_status = 'CANCELLATION_REQUESTED' THEN
+        UPDATE public.customer_cancellation_requests
+        SET processed_by = p_admin_profile_id,
+            processed_at = NOW(),
+            decision = CASE
+                WHEN p_target_status = 'CANCELLED' THEN 'APPROVED'
+                ELSE 'DECLINED'
+            END,
+            decision_notes = TRIM(p_reason)
+        WHERE id = (
+            SELECT id
+            FROM public.customer_cancellation_requests
+            WHERE tenant_id = p_tenant_id
+              AND booking_id = p_booking_id
+              AND processed_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            FOR UPDATE
+        );
+
+        GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
+        IF v_rows_affected != 1 THEN
+            RAISE EXCEPTION 'Cancellation decision audit failed: Expected one pending request, got %',
+                v_rows_affected;
+        END IF;
+    END IF;
+
     UPDATE public.bookings
     SET status = p_target_status,
         updated_at = NOW()
@@ -328,20 +356,28 @@ BEGIN
         RAISE EXCEPTION 'Expected exactly 1 booking row updated, got %', v_rows_affected;
     END IF;
 
+    v_event_label := CASE
+        WHEN v_current_status = 'CANCELLATION_REQUESTED' AND p_target_status = 'CANCELLED'
+            THEN 'Cancellation Approved'
+        WHEN v_current_status = 'CANCELLATION_REQUESTED' AND p_target_status = 'CONFIRMED'
+            THEN 'Cancellation Declined'
+        ELSE 'Admin Status Transition: ' || p_target_status
+    END;
+
     INSERT INTO public.booking_timeline_events (
         tenant_id, booking_id, from_status, to_status, event_label, event_description,
         performed_by_role, performed_by, is_system_event, metadata
     ) VALUES (
         p_tenant_id, p_booking_id, v_current_status, p_target_status,
-        'Admin Status Transition: ' || p_target_status,
-        p_reason, 'admin', p_admin_profile_id, FALSE,
-        jsonb_build_object('previousStatus', v_current_status, 'newStatus', p_target_status, 'reason', p_reason)
+        v_event_label,
+        TRIM(p_reason), 'admin', p_admin_profile_id, FALSE,
+        jsonb_build_object('previousStatus', v_current_status, 'newStatus', p_target_status, 'reason', TRIM(p_reason))
     );
 
     PERFORM public.log_audit_event(
         p_tenant_id, 'BOOKING_STATUS_TRANSITION', 'BOOKING', 'bookings', p_booking_id, v_booking_public_id,
         p_admin_profile_id, 'admin', 'info',
-        jsonb_build_object('previous_status', v_current_status, 'new_status', p_target_status, 'reason', p_reason)
+        jsonb_build_object('previous_status', v_current_status, 'new_status', p_target_status, 'reason', TRIM(p_reason))
     );
 
     RETURN jsonb_build_object(
@@ -352,7 +388,7 @@ BEGIN
         'new_status', p_target_status
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 
 REVOKE EXECUTE ON FUNCTION public.record_admin_payment_atomic(

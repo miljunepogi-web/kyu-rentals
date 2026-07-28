@@ -143,7 +143,10 @@ export default async function PackageDetailPage({ params }: PackageDetailPagePro
 
               <p className="text-center text-xs text-muted-foreground">
                 <Sparkles className="inline-block h-3.5 w-3.5 text-amber-500 mr-1" />
-                Free cancellation up to 72 hours before your event.
+                30% non-refundable reservation deposit.{" "}
+                <Link href="/policies/cancellation" className="font-semibold underline underline-offset-2">
+                  View policy
+                </Link>
               </p>
             </div>
           </div>

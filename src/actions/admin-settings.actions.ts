@@ -101,9 +101,6 @@ export async function updateTenantSettingsAction(
       { namespace: "business", key: "phone", value: JSON.stringify(input.contactPhone), data_type: "string", label: "Contact Phone" },
       { namespace: "pricing", key: "reservation_pct", value: JSON.stringify(input.reservationPct), data_type: "number", label: "Reservation Fee Percentage" },
       { namespace: "pricing", key: "overtime_rate_per_hour", value: JSON.stringify(input.overtimeRatePerHour), data_type: "number", label: "Overtime Hourly Rate" },
-      { namespace: "policy", key: "cancellation_window_full_refund_hrs", value: JSON.stringify(input.cancellationWindowFullRefundHrs), data_type: "number", label: "Full Refund Window (Hours)" },
-      { namespace: "policy", key: "cancellation_window_partial_refund_hrs", value: JSON.stringify(input.cancellationWindowPartialRefundHrs), data_type: "number", label: "Partial Refund Window (Hours)" },
-      { namespace: "policy", key: "partial_refund_pct", value: JSON.stringify(input.partialRefundPct), data_type: "number", label: "Partial Refund Percentage" },
       { namespace: "policy", key: "booking_expiry_hours", value: JSON.stringify(input.bookingExpiryHours), data_type: "number", label: "Booking Expiry (Hours)" },
     ];
 

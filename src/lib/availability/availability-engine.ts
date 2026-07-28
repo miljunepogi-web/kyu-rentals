@@ -20,6 +20,17 @@ export interface CheckAvailabilityParams {
   durationHours: number;
 }
 
+export const ACTIVE_BOOKING_STATUSES = [
+  "CONFIRMED",
+  "PREPARING",
+  "DRIVER_ASSIGNED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "RENTAL_ACTIVE",
+  "PICKUP_SCHEDULED",
+  "CANCELLATION_REQUESTED",
+] as const;
+
 /**
  * Server-Side Concurrency-Safe Availability Engine (Sprint 8 Task #5 Verified).
  * 
@@ -59,16 +70,7 @@ export async function checkPackageAvailability({
   const totalDeployableUnits = deployableCount || 0;
 
   // 2. Fetch Active Confirmed Bookings overlapping the target date
-  // Statuses considered active blocks: CONFIRMED, PREPARING, DRIVER_ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, RENTAL_ACTIVE
-  const activeBookingStatuses = [
-    "CONFIRMED",
-    "PREPARING",
-    "DRIVER_ASSIGNED",
-    "OUT_FOR_DELIVERY",
-    "DELIVERED",
-    "RENTAL_ACTIVE",
-    "PICKUP_SCHEDULED",
-  ];
+  // A pending cancellation still holds its unit until an administrator approves it.
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { count: confirmedCount, error: bookingErr } = await (supabase.from("bookings") as any)
@@ -76,7 +78,7 @@ export async function checkPackageAvailability({
     .eq("tenant_id", tenantId)
     .eq("package_id", packageId)
     .eq("event_date", eventDate)
-    .in("status", activeBookingStatuses);
+    .in("status", [...ACTIVE_BOOKING_STATUSES]);
 
   if (bookingErr) {
     throw new Error(`Failed to query active bookings: ${bookingErr.message}`);

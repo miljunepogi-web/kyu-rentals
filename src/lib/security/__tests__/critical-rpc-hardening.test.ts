@@ -26,6 +26,17 @@ describe("critical admin RPC hardening migration", () => {
 
     expect(definition).toContain("auth.uid()");
     expect(definition).toContain(`has_permission('${permission}'`);
-    expect(definition).toContain("security definer set search_path = public");
+    expect(definition).toContain("security definer set search_path =");
+  });
+
+  test("uses the hardened search path for booking status transitions", () => {
+    const start = migration.indexOf(
+      "create or replace function public.transition_booking_status_admin",
+    );
+    const definition = migration.slice(start);
+
+    expect(definition).toContain(
+      "security definer set search_path = pg_catalog, public, pg_temp",
+    );
   });
 });

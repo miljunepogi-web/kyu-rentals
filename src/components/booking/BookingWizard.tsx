@@ -562,7 +562,11 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
                   />
                   <label htmlFor="terms" className="cursor-pointer text-muted-foreground leading-relaxed">
-                    I agree to the KYU Rentals rental agreement policy. I understand that a <strong>30% non-refundable deposit</strong> is required to lock in the event date, and the remaining 70% balance is collected upon delivery.
+                    I agree to the KYU Rentals{" "}
+                    <a href="/policies/cancellation" target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2">
+                      cancellation and refund policy
+                    </a>
+                    . I understand that the <strong>30% reservation deposit is non-refundable for customer-initiated cancellations</strong>, while all booking payments are refunded if KYU Rentals cannot fulfill the confirmed booking. The remaining 70% balance is collected upon delivery.
                   </label>
                 </div>
               </div>

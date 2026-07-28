@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  CANCELLATION_POLICY,
+  CUSTOMER_CANCELLATION_SUMMARY,
+} from "@/config/cancellation-policy.config";
+import {
   ArrowLeft,
   Calendar,
   CreditCard,
@@ -146,6 +150,7 @@ export default function CustomerBookingDetailPage({
   };
 
   const canRequestCancellation = ["CONFIRMED", "PREPARING"].includes(detail.status);
+  const isCancellationPending = detail.status === "CANCELLATION_REQUESTED";
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto px-4 py-8">
@@ -314,8 +319,21 @@ export default function CustomerBookingDetailPage({
       )}
 
       {/* Cancellation Request Section */}
+      {isCancellationPending && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5">
+          <h3 className="flex items-center gap-2 font-outfit text-base font-bold">
+            <Clock className="h-4 w-4 text-amber-600" />
+            Cancellation request under review
+          </h3>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            {CANCELLATION_POLICY.adminReview} Your event date and equipment remain reserved
+            until the decision is recorded.
+          </p>
+        </div>
+      )}
+
       {canRequestCancellation && (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-6 space-y-4 shadow-xs">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-outfit text-base font-bold text-destructive flex items-center gap-2">
@@ -339,6 +357,18 @@ export default function CustomerBookingDetailPage({
 
           {showCancelForm && (
             <form onSubmit={handleCancelSubmit} className="space-y-4 pt-2 border-t border-destructive/20">
+              <ul className="space-y-1.5 text-xs leading-5 text-muted-foreground">
+                {CUSTOMER_CANCELLATION_SUMMARY.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+              <Link
+                href="/policies/cancellation"
+                target="_blank"
+                className="inline-block text-xs font-semibold underline underline-offset-2"
+              >
+                Read the complete cancellation and refund policy
+              </Link>
               <div>
                 <Label htmlFor="cancellation-reason" className="text-xs font-bold">
                   Cancellation Reason <span className="text-destructive">*</span>
