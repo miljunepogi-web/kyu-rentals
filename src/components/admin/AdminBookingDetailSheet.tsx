@@ -40,10 +40,14 @@ import {
   Calendar,
   Info,
   MessageSquare,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { recordAdminPaymentAction } from "@/actions/admin-payment.actions";
+import {
+  issuePayMongoRefundAction,
+  recordAdminPaymentAction,
+} from "@/actions/admin-payment.actions";
 import { addBookingInternalNoteAction } from "@/actions/admin-note.actions";
 import { AdminReceiptModal } from "@/components/admin/AdminReceiptModal";
 
@@ -101,6 +105,9 @@ export function AdminBookingDetailSheet({
   const [collectRef, setCollectRef] = useState<string>("");
   const [collectNotes, setCollectNotes] = useState<string>("");
   const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
+  const [refundPaymentId, setRefundPaymentId] = useState<string | null>(null);
+  const [refundNotes, setRefundNotes] = useState<string>("");
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState<boolean>(false);
 
   // Internal Note State
   const [showNoteForm, setShowNoteForm] = useState<boolean>(false);
@@ -607,11 +614,9 @@ export function AdminBookingDetailSheet({
                 ) : (
                   <div className="space-y-2">
                     {detail.payments.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-card border text-xs"
-                      >
-                        <div>
+                      <div key={p.id} className="rounded-xl bg-card border p-3 text-xs space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
                           <div className="font-bold flex items-center gap-2">
                             <span>{formatPHP(p.amount)}</span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground uppercase font-mono">
@@ -621,8 +626,8 @@ export function AdminBookingDetailSheet({
                           <div className="text-[10px] text-muted-foreground mt-0.5">
                             Ref: {p.publicId} • {formatShortDate(p.createdAt)}
                           </div>
-                        </div>
-                        <span
+                          </div>
+                          <span
                           className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
                             ["PAID", "SUCCESSFUL", "COMPLETED"].includes(p.status)
                               ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
@@ -632,7 +637,97 @@ export function AdminBookingDetailSheet({
                           }`}
                         >
                           {p.status}
-                        </span>
+                          </span>
+                        </div>
+                        {detail.canManagePayments &&
+                          detail.status === "CANCELLED" &&
+                          p.gatewayProvider?.toUpperCase() === "PAYMONGO" &&
+                          ["PAID", "SUCCESSFUL", "COMPLETED"].includes(p.status.toUpperCase()) &&
+                          p.paymentType.toLowerCase() !== "refund" &&
+                          (refundPaymentId === p.id ? (
+                            <form
+                              className="border-t pt-3 space-y-3"
+                              onSubmit={async (event) => {
+                                event.preventDefault();
+                                setIsSubmittingRefund(true);
+                                setErrorMsg(null);
+                                const result = await issuePayMongoRefundAction({
+                                  bookingId: detail.id,
+                                  paymentId: p.id,
+                                  reason: "merchant_cancellation",
+                                  notes: refundNotes,
+                                });
+                                setIsSubmittingRefund(false);
+                                if (result.success) {
+                                  showSuccess(`Refund submitted to PayMongo. Ref: ${result.paymentId}`);
+                                  setRefundPaymentId(null);
+                                  setRefundNotes("");
+                                  fetchDetail(detail.id);
+                                  onRefresh();
+                                } else {
+                                  setErrorMsg(result.error || "Refund failed.");
+                                }
+                              }}
+                            >
+                              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-800 dark:text-amber-200">
+                                Full refund: {formatPHP(p.amount)}. The customer receives the refund,
+                                but PayMongo does not return the original transaction fee.
+                              </div>
+                              <div>
+                                <Label htmlFor={`refund-notes-${p.id}`} className="text-[11px] font-bold">
+                                  Refund reason / approval notes
+                                </Label>
+                                <Input
+                                  id={`refund-notes-${p.id}`}
+                                  value={refundNotes}
+                                  onChange={(event) => setRefundNotes(event.target.value)}
+                                  placeholder="e.g. KYU unable to fulfill booking"
+                                  minLength={5}
+                                  maxLength={500}
+                                  required
+                                  className="mt-1 h-9 text-xs"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    setRefundPaymentId(null);
+                                    setRefundNotes("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  type="submit"
+                                  variant="destructive"
+                                  size="sm"
+                                  className="flex-1 gap-1"
+                                  disabled={isSubmittingRefund}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                  {isSubmittingRefund ? "Submitting..." : `Refund ${formatPHP(p.amount)}`}
+                                </Button>
+                              </div>
+                            </form>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-8 gap-1 text-[11px]"
+                              onClick={() => {
+                                setRefundPaymentId(p.id);
+                                setRefundNotes("");
+                              }}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              Issue Full PayMongo Refund
+                            </Button>
+                          ))}
                       </div>
                     ))}
                   </div>
