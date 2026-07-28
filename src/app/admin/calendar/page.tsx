@@ -155,13 +155,13 @@ export default function AdminCalendarPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border rounded-2xl p-4 shadow-xs">
         {/* Date Navigation */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={handlePrev} className="h-9 w-9 p-0 rounded-xl">
+          <Button variant="outline" size="sm" onClick={handlePrev} className="h-9 w-9 p-0 rounded-xl" aria-label="Previous month">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="font-outfit font-extrabold text-lg min-w-[160px] text-center">
             {monthTitle}
           </span>
-          <Button variant="outline" size="sm" onClick={handleNext} className="h-9 w-9 p-0 rounded-xl">
+          <Button variant="outline" size="sm" onClick={handleNext} className="h-9 w-9 p-0 rounded-xl" aria-label="Next month">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="secondary" size="sm" onClick={handleToday} className="h-9 font-bold text-xs rounded-xl">
