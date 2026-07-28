@@ -102,6 +102,7 @@ export default function AdminBookingsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(() => {
     if (searchParams.get("date") === "today") return "__TODAY__";
     const s = searchParams.get("status");
@@ -126,11 +127,22 @@ export default function AdminBookingsPage() {
     async (showToast = false) => {
       const resolvedDate = dateFilter || undefined;
       const resolvedStatus = statusFilter !== "ALL" ? statusFilter : undefined;
-      const data = await getAdminBookings(resolvedStatus, resolvedDate);
-      setBookings(data);
-      setIsLoading(false);
-      if (showToast) {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const data = await getAdminBookings(resolvedStatus, resolvedDate);
+        setBookings(data);
+        if (showToast) {
         toast.success(`Ledger refreshed — ${data.length} record${data.length !== 1 ? "s" : ""} loaded`);
+        }
+      } catch {
+        setBookings([]);
+        setErrorMessage("Could not load bookings. Try refreshing.");
+        if (showToast) {
+          toast.error("Booking ledger refresh failed.");
+        }
+      } finally {
+        setIsLoading(false);
       }
     },
     [statusFilter, dateFilter]
@@ -140,12 +152,22 @@ export default function AdminBookingsPage() {
     let isCancelled = false;
     const resolvedDate = dateFilter || undefined;
     const resolvedStatus = statusFilter !== "ALL" ? statusFilter : undefined;
-    getAdminBookings(resolvedStatus, resolvedDate).then((data) => {
-      if (!isCancelled) {
-        setBookings(data);
-        setIsLoading(false);
-      }
-    });
+    getAdminBookings(resolvedStatus, resolvedDate)
+      .then((data) => {
+        if (!isCancelled) {
+          setBookings(data);
+          setErrorMessage(null);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setBookings([]);
+          setErrorMessage("Could not load bookings. Try refreshing.");
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoading(false);
+      });
     return () => { isCancelled = true; };
   }, [statusFilter, dateFilter]);
 
@@ -238,6 +260,19 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* ── Quick-Filter Pills ── */}
+      {errorMessage && (
+        <div role="alert" className="flex flex-col gap-3 border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchBookings(false)} disabled={isLoading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            Retry
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {QUICK_FILTERS.map((qf) => (
           <button

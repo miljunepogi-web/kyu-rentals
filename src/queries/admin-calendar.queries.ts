@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { throwQueryError } from "@/queries/query-error";
 
 export interface AdminCalendarEvent {
   id: string;
@@ -32,7 +33,7 @@ export async function getAdminCalendarEvents(
   const startDate = new Date(year, month - 1, -7).toISOString().split("T")[0];
   const endDate = new Date(year, month, 14).toISOString().split("T")[0];
 
-  const { data: rawBookings, error: _error } = await supabase
+  const { data: rawBookings, error } = await supabase
     .from("bookings")
     .select(`
       id, public_id, status, event_date, start_time, duration_hours, event_end_time,
@@ -46,6 +47,13 @@ export async function getAdminCalendarEvents(
     .gte("event_date", startDate)
     .lte("event_date", endDate)
     .not("status", "in", '("CANCELLED","REJECTED","EXPIRED","DRAFT")');
+
+  if (error) {
+    throwQueryError("admin.calendar.list", error);
+  }
+  if (!rawBookings) {
+    throwQueryError("admin.calendar.list", new Error("Calendar query returned no data"));
+  }
 
   interface RawBookingRecord {
     id: string;
