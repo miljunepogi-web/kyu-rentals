@@ -10,12 +10,12 @@ export default async function PackagesPage() {
   const packages = await getPublishedPackages();
 
   return (
-    <div className="py-12 md:py-20">
+    <div className="py-8 sm:py-12 md:py-16">
       <div className="container mx-auto px-4">
         {/* Page Header */}
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <h1 className="font-outfit text-4xl font-extrabold tracking-tight sm:text-5xl">Rental Packages & Pricing</h1>
-          <p className="mt-4 text-lg text-muted-foreground">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
+          <h1 className="font-outfit text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">Rental Packages & Pricing</h1>
+          <p className="mt-3 sm:mt-4 text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
             Select the perfect package for your venue size and guest count. All rentals include setup and high-definition songbooks.
           </p>
         </div>
