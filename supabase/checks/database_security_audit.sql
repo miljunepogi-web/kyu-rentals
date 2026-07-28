@@ -6,7 +6,7 @@
 --   paths on privileged functions.
 --
 -- Expected clean result:
---   All three queries return zero rows.
+--   All four queries return zero rows.
 -- ============================================================================
 
 -- 1. Every public base table should have RLS enabled.
@@ -54,3 +54,16 @@ WHERE namespace.nspname = 'public'
       WHERE setting LIKE 'search_path=%'
   )
 ORDER BY procedure.proname, identity_arguments;
+
+-- 4. Public package reads must work before and after customer authentication.
+SELECT
+    policy.policyname,
+    policy.roles
+FROM pg_catalog.pg_policies AS policy
+WHERE policy.schemaname = 'public'
+  AND policy.tablename = 'packages'
+  AND policy.policyname = 'Public read published packages'
+  AND NOT (
+      policy.roles @> ARRAY['anon']::NAME[]
+      AND policy.roles @> ARRAY['authenticated']::NAME[]
+  );
