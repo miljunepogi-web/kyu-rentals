@@ -8,7 +8,7 @@ import { newDb, DataType } from "pg-mem";
  * - has_table_privilege simulation
  * - has_function_privilege simulation
  * - has_sequence_privilege simulation
- * - anon catalog read access
+ * - packages-only anon catalog read access
  * - immutable ledger write restrictions
  */
 describe("PR 3 — Least Privilege Table & Function Grants Specification Tests (pg-mem)", () => {
@@ -62,7 +62,7 @@ describe("PR 3 — Least Privilege Table & Function Grants Specification Tests (
         "public.packages": ["SELECT"],
         "public.payments": [],
         "public.audit_logs": [],
-        "public.reviews": ["SELECT"],
+        "public.reviews": [],
       },
       authenticated: {
         "public.packages": ["SELECT"],
@@ -125,6 +125,9 @@ describe("PR 3 — Least Privilege Table & Function Grants Specification Tests (
 
     const anonPaymentSelect = db.public.many(`SELECT public.has_table_privilege('anon', 'public.payments', 'SELECT') AS res;`);
     expect(Boolean(anonPaymentSelect[0]?.res)).toBe(false);
+
+    const anonReviewSelect = db.public.many(`SELECT public.has_table_privilege('anon', 'public.reviews', 'SELECT') AS res;`);
+    expect(Boolean(anonReviewSelect[0]?.res)).toBe(false);
 
     const authPaymentInsert = db.public.many(`SELECT public.has_table_privilege('authenticated', 'public.payments', 'INSERT') AS res;`);
     expect(Boolean(authPaymentInsert[0]?.res)).toBe(false);

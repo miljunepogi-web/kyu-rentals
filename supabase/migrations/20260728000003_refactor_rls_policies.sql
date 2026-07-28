@@ -254,6 +254,7 @@ CREATE POLICY "Staff view delivery checklists in tenant"
     );
 
 DROP POLICY IF EXISTS "Staff view proof of deliveries" ON public.proof_of_deliveries;
+DROP POLICY IF EXISTS "Staff view proof of deliveries in tenant" ON public.proof_of_deliveries;
 CREATE POLICY "Staff view proof of deliveries in tenant"
     ON public.proof_of_deliveries
     FOR SELECT

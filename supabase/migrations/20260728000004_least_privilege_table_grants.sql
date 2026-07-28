@@ -4,7 +4,7 @@
 -- Purpose:
 --   1. Enforce strict least-privilege PostgreSQL grants across all 33 public tables.
 --   2. Revoke default ALL grants from PUBLIC and anon.
---   3. Restrict anon access strictly to public equipment catalog, subscription plans, and approved reviews.
+--   3. Restrict anon access strictly to the public equipment catalog.
 --   4. Revoke direct INSERT/UPDATE/DELETE/TRUNCATE on immutable ledgers (payments, audit_logs, timeline_events).
 --   5. Enforce explicit column-level INSERT and UPDATE grants for authenticated users.
 --   6. Enforce RLS WITH CHECK tenant & ownership assertions across all domain tables.
@@ -82,27 +82,9 @@ CREATE POLICY "Public read published packages"
     TO anon
     USING (is_published = TRUE AND is_deleted = FALSE);
 
--- 2. subscription_plans (public plan catalog)
-GRANT SELECT (id, name, slug, price_monthly, max_units, features, is_active)
-    ON TABLE public.subscription_plans TO anon;
-
+-- Remove stale public policies from tables outside the anonymous allowlist.
 DROP POLICY IF EXISTS "Public read active subscription plans" ON public.subscription_plans;
-CREATE POLICY "Public read active subscription plans"
-    ON public.subscription_plans
-    FOR SELECT
-    TO anon
-    USING (is_active = TRUE);
-
--- 3. reviews (public customer reviews)
-GRANT SELECT (id, package_id, rating, comment, created_at)
-    ON TABLE public.reviews TO anon;
-
 DROP POLICY IF EXISTS "Public read approved reviews" ON public.reviews;
-CREATE POLICY "Public read approved reviews"
-    ON public.reviews
-    FOR SELECT
-    TO anon
-    USING (is_approved = TRUE);
 
 -- ----------------------------------------------------------------------------
 -- 5. AUTHENTICATED ROLE (`authenticated`) TABLE READ GRANTS
