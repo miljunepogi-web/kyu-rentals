@@ -94,10 +94,12 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
   const [createdBookingPublicId, setCreatedBookingPublicId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<string | null>(null);
 
   // Reusable Centralized Error Handler
-  const handleError = useCallback((msg: string | null) => {
+  const handleError = useCallback((msg: string | null, fieldKey: string | null = null) => {
     setErrorMsg(msg);
+    setInvalidField(msg ? fieldKey : null);
   }, []);
 
   // Extracted Pricing Computation
@@ -114,14 +116,14 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
     [initialPackage, durationHours, extraMics, extraLights, eventDate, deliveryZone]
   );
 
-  // Step Validation Functions
+  // Step Validation Functions with Field-Specific Target Mapping
   const validateStep1 = (): boolean => {
     if (!eventDate) {
-      handleError("Please select a valid event date.");
+      handleError("Please select a valid event date.", "eventDate");
       return false;
     }
     if (!startTime) {
-      handleError("Please specify an event start time.");
+      handleError("Please specify an event start time.", "startTime");
       return false;
     }
     handleError(null);
@@ -135,7 +137,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
   const validateStep3 = (): boolean => {
     if (!deliveryAddress.trim() || deliveryAddress.trim().length < 5) {
-      handleError("Please enter a valid venue delivery address (minimum 5 characters).");
+      handleError("Please enter a valid venue delivery address (minimum 5 characters).", "deliveryAddress");
       return false;
     }
     handleError(null);
@@ -144,19 +146,19 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
 
   const validateStep4 = (): boolean => {
     if (!customerFullName.trim() || customerFullName.trim().length < 2) {
-      handleError("Please enter your full name.");
+      handleError("Please enter your full name.", "customerFullName");
       return false;
     }
     if (!customerEmail.trim() || !customerEmail.includes("@")) {
-      handleError("Please enter a valid email address.");
+      handleError("Please enter a valid email address.", "customerEmail");
       return false;
     }
     if (!customerPhone.trim() || customerPhone.trim().length < 10) {
-      handleError("Please enter a valid mobile phone number (at least 10 digits).");
+      handleError("Please enter a valid mobile phone number (at least 10 digits).", "customerPhone");
       return false;
     }
     if (!termsAccepted) {
-      handleError("Please accept the rental terms and conditions to proceed.");
+      handleError("Please accept the rental terms and conditions to proceed.", "termsAccepted");
       return false;
     }
     handleError(null);
@@ -291,6 +293,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
         {/* Left Column: Interactive Form Steps */}
         <div className="lg:col-span-7 space-y-6">
+          {/* Top Summary Alert Banner */}
           {errorMsg && (
             <div
               id="booking-error-banner"
@@ -323,15 +326,23 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     id="event-date"
                     type="date"
                     value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
+                    onChange={(e) => {
+                      setEventDate(e.target.value);
+                      if (invalidField === "eventDate") handleError(null);
+                    }}
                     min={new Date().toISOString().split("T")[0]}
-                    className="mt-1.5 h-11 sm:h-12 text-sm min-h-[44px]"
+                    className={`mt-1.5 h-11 sm:h-12 text-sm min-h-[44px] ${invalidField === "eventDate" ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     required
                     disabled={isBusy}
                     aria-required="true"
-                    aria-invalid={Boolean(errorMsg && !eventDate)}
-                    aria-describedby={errorMsg && !eventDate ? "booking-error-banner" : undefined}
+                    aria-invalid={invalidField === "eventDate"}
+                    aria-describedby={invalidField === "eventDate" ? "event-date-error" : undefined}
                   />
+                  {invalidField === "eventDate" && errorMsg && (
+                    <p id="event-date-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                      {errorMsg}
+                    </p>
+                  )}
                 </div>
 
                 {/* Mobile Responsive Grid: Stack on narrow 360px screens, 2-cols on sm: up */}
@@ -342,14 +353,22 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       id="start-time"
                       type="time"
                       value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="mt-1.5 h-11 sm:h-12 text-sm min-h-[44px]"
+                      onChange={(e) => {
+                        setStartTime(e.target.value);
+                        if (invalidField === "startTime") handleError(null);
+                      }}
+                      className={`mt-1.5 h-11 sm:h-12 text-sm min-h-[44px] ${invalidField === "startTime" ? "border-destructive focus-visible:ring-destructive" : ""}`}
                       required
                       disabled={isBusy}
                       aria-required="true"
-                      aria-invalid={Boolean(errorMsg && !startTime)}
-                      aria-describedby={errorMsg && !startTime ? "booking-error-banner" : undefined}
+                      aria-invalid={invalidField === "startTime"}
+                      aria-describedby={invalidField === "startTime" ? "start-time-error" : undefined}
                     />
+                    {invalidField === "startTime" && errorMsg && (
+                      <p id="start-time-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                        {errorMsg}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="duration-hours" className="text-xs sm:text-sm font-semibold">Rental Duration</Label>
@@ -424,12 +443,18 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 rounded-xl border p-4">
+                {/* Extra Lights Checkbox: Full 44px+ Clickable Container Target */}
+                <label
+                  htmlFor="extra-lights-checkbox"
+                  className="flex items-center justify-between gap-3 rounded-xl border p-4 cursor-pointer min-h-[44px] hover:bg-secondary/20 transition-colors"
+                >
                   <div className="pr-2">
-                    <label htmlFor="extra-lights-checkbox" className="font-semibold text-sm cursor-pointer block">
+                    <span className="font-semibold text-sm block text-foreground">
                       Laser Disco Party Bar Upgrade
-                    </label>
-                    <p className="text-xs text-muted-foreground">₱500 / RGB sound-activated lasers</p>
+                    </span>
+                    <span className="text-xs text-muted-foreground block">
+                      ₱500 / RGB sound-activated lasers
+                    </span>
                   </div>
                   <input
                     id="extra-lights-checkbox"
@@ -439,7 +464,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     disabled={isBusy}
                     className="h-5 w-5 shrink-0 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer min-h-[20px] min-w-[20px]"
                   />
-                </div>
+                </label>
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
@@ -487,14 +512,22 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     id="address"
                     placeholder="House/Unit #, Street, Barangay, City"
                     value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    onChange={(e) => {
+                      setDeliveryAddress(e.target.value);
+                      if (invalidField === "deliveryAddress") handleError(null);
+                    }}
                     disabled={isBusy}
-                    className="mt-1.5 h-11 sm:h-12 text-sm min-h-[44px]"
+                    className={`mt-1.5 h-11 sm:h-12 text-sm min-h-[44px] ${invalidField === "deliveryAddress" ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     required
                     aria-required="true"
-                    aria-invalid={Boolean(errorMsg && (!deliveryAddress.trim() || deliveryAddress.trim().length < 5))}
-                    aria-describedby={errorMsg && (!deliveryAddress.trim() || deliveryAddress.trim().length < 5) ? "booking-error-banner" : undefined}
+                    aria-invalid={invalidField === "deliveryAddress"}
+                    aria-describedby={invalidField === "deliveryAddress" ? "delivery-address-error" : undefined}
                   />
+                  {invalidField === "deliveryAddress" && errorMsg && (
+                    <p id="delivery-address-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                      {errorMsg}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -541,14 +574,22 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     id="fullName"
                     placeholder="Juan Dela Cruz"
                     value={customerFullName}
-                    onChange={(e) => setCustomerFullName(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerFullName(e.target.value);
+                      if (invalidField === "customerFullName") handleError(null);
+                    }}
                     disabled={isBusy}
-                    className="mt-1.5 h-11 sm:h-12 text-sm min-h-[44px]"
+                    className={`mt-1.5 h-11 sm:h-12 text-sm min-h-[44px] ${invalidField === "customerFullName" ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     required
                     aria-required="true"
-                    aria-invalid={Boolean(errorMsg && (!customerFullName.trim() || customerFullName.trim().length < 2))}
-                    aria-describedby={errorMsg && (!customerFullName.trim() || customerFullName.trim().length < 2) ? "booking-error-banner" : undefined}
+                    aria-invalid={invalidField === "customerFullName"}
+                    aria-describedby={invalidField === "customerFullName" ? "full-name-error" : undefined}
                   />
+                  {invalidField === "customerFullName" && errorMsg && (
+                    <p id="full-name-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                      {errorMsg}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -559,14 +600,22 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       type="email"
                       placeholder="juan@example.com"
                       value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      onChange={(e) => {
+                        setCustomerEmail(e.target.value);
+                        if (invalidField === "customerEmail") handleError(null);
+                      }}
                       disabled={isBusy}
-                      className="mt-1.5 h-11 sm:h-12 text-sm min-h-[44px]"
+                      className={`mt-1.5 h-11 sm:h-12 text-sm min-h-[44px] ${invalidField === "customerEmail" ? "border-destructive focus-visible:ring-destructive" : ""}`}
                       required
                       aria-required="true"
-                      aria-invalid={Boolean(errorMsg && (!customerEmail.trim() || !customerEmail.includes("@")))}
-                      aria-describedby={errorMsg && (!customerEmail.trim() || !customerEmail.includes("@")) ? "booking-error-banner" : undefined}
+                      aria-invalid={invalidField === "customerEmail"}
+                      aria-describedby={invalidField === "customerEmail" ? "customer-email-error" : undefined}
                     />
+                    {invalidField === "customerEmail" && errorMsg && (
+                      <p id="customer-email-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                        {errorMsg}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="phone" className="text-xs sm:text-sm font-semibold">Mobile Phone (GCash/SMS)</Label>
@@ -575,32 +624,56 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       type="tel"
                       placeholder="09171234567"
                       value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      onChange={(e) => {
+                        setCustomerPhone(e.target.value);
+                        if (invalidField === "customerPhone") handleError(null);
+                      }}
                       disabled={isBusy}
-                      className="mt-1.5 h-11 sm:h-12 text-sm min-h-[44px]"
+                      className={`mt-1.5 h-11 sm:h-12 text-sm min-h-[44px] ${invalidField === "customerPhone" ? "border-destructive focus-visible:ring-destructive" : ""}`}
                       required
                       aria-required="true"
-                      aria-invalid={Boolean(errorMsg && (!customerPhone.trim() || customerPhone.trim().length < 10))}
-                      aria-describedby={errorMsg && (!customerPhone.trim() || customerPhone.trim().length < 10) ? "booking-error-banner" : undefined}
+                      aria-invalid={invalidField === "customerPhone"}
+                      aria-describedby={invalidField === "customerPhone" ? "customer-phone-error" : undefined}
                     />
+                    {invalidField === "customerPhone" && errorMsg && (
+                      <p id="customer-phone-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                        {errorMsg}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-xl bg-secondary/40 p-3.5 sm:p-4 border text-xs">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    disabled={isBusy}
-                    className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer min-h-[20px] min-w-[20px]"
-                    aria-required="true"
-                    aria-invalid={Boolean(errorMsg && !termsAccepted)}
-                    aria-describedby={errorMsg && !termsAccepted ? "booking-error-banner" : undefined}
-                  />
-                  <label htmlFor="terms" className="cursor-pointer text-muted-foreground leading-relaxed">
-                    I agree to the KYU Rentals rental agreement policy. I understand that a <strong>30% non-refundable deposit</strong> is required to lock in the event date, and the remaining 70% balance is collected upon delivery.
+                {/* Rental Terms Checkbox: Full 44px+ Clickable Container Target */}
+                <div>
+                  <label
+                    htmlFor="terms"
+                    className={`flex items-start gap-3 rounded-xl bg-secondary/40 p-3.5 sm:p-4 border text-xs cursor-pointer min-h-[44px] hover:bg-secondary/60 transition-colors ${
+                      invalidField === "termsAccepted" ? "border-destructive focus-within:ring-2 focus-within:ring-destructive" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={termsAccepted}
+                      onChange={(e) => {
+                        setTermsAccepted(e.target.checked);
+                        if (invalidField === "termsAccepted") handleError(null);
+                      }}
+                      disabled={isBusy}
+                      aria-required="true"
+                      aria-invalid={invalidField === "termsAccepted"}
+                      aria-describedby={invalidField === "termsAccepted" ? "terms-error" : undefined}
+                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer min-h-[20px] min-w-[20px]"
+                    />
+                    <span className="text-muted-foreground leading-relaxed">
+                      I agree to the KYU Rentals rental agreement policy. I understand that a <strong>30% non-refundable deposit</strong> is required to lock in the event date, and the remaining 70% balance is collected upon delivery.
+                    </span>
                   </label>
+                  {invalidField === "termsAccepted" && errorMsg && (
+                    <p id="terms-error" role="alert" className="text-xs font-medium text-destructive mt-1">
+                      {errorMsg}
+                    </p>
+                  )}
                 </div>
               </div>
 
