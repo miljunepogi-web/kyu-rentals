@@ -58,6 +58,7 @@ export async function createBookingAction(
 
   try {
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
 
     // B. Tenant & Customer Context Resolution
     const { data: userData } = await supabase.auth.getUser();
@@ -79,7 +80,7 @@ export async function createBookingAction(
 
     if (!currentUserId || !resolvedTenantId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existingProfile } = await (supabase.from("profiles") as any)
+      const { data: existingProfile } = await (adminSupabase.from("profiles") as any)
         .select("id, tenant_id")
         .eq("email", payload.customerEmail)
         .eq("is_deleted", false)
@@ -117,7 +118,7 @@ export async function createBookingAction(
 
     // C. Idempotency Key Processing & Processing Lock Check
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingKeyData } = await (supabase.from("idempotency_keys") as any)
+    const { data: existingKeyData } = await (adminSupabase.from("idempotency_keys") as any)
       .select("status, response_body, request_hash")
       .eq("tenant_id", tenantId)
       .eq("key", idempotencyKey)
@@ -162,7 +163,7 @@ export async function createBookingAction(
 
     // Register idempotency key in 'processing' status
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: keyInsertErr } = await (supabase.from("idempotency_keys") as any).insert({
+    const { error: keyInsertErr } = await (adminSupabase.from("idempotency_keys") as any).insert({
       tenant_id: tenantId,
       key: idempotencyKey,
       request_path: "/api/v1/bookings/start",
@@ -215,7 +216,6 @@ export async function createBookingAction(
     const packageName = pkg.name;
 
     // E. Concurrency-Safe Availability Check
-    const adminSupabase = createAdminClient();
     const availResult = await checkPackageAvailability({
       supabase: adminSupabase,
       tenantId,
@@ -274,7 +274,7 @@ export async function createBookingAction(
 
     // I. TRUE ATOMIC TRANSACTION via PostgreSQL RPC `create_booking_atomic`
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rpcResult, error: rpcErr } = await (supabase.rpc as any)("create_booking_atomic", {
+    const { data: rpcResult, error: rpcErr } = await (adminSupabase.rpc as any)("create_booking_atomic", {
       p_tenant_id: tenantId,
       p_customer_id: currentUserId || null,
       p_customer_email: payload.customerEmail,
@@ -333,7 +333,7 @@ export async function createBookingAction(
 
     // J. Update Idempotency Key Status to 'completed' with Response Cache
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("idempotency_keys") as any)
+    await (adminSupabase.from("idempotency_keys") as any)
       .update({
         status: "completed",
         response_status: 201,
@@ -359,9 +359,9 @@ export async function createBookingAction(
 
     if (idempotencyRegistered && tenantId) {
       try {
-        const supabase = await createClient();
+        const adminSupabase = createAdminClient();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("idempotency_keys") as any)
+        await (adminSupabase.from("idempotency_keys") as any)
           .update({ status: "failed" })
           .eq("tenant_id", tenantId)
           .eq("key", idempotencyKey);
