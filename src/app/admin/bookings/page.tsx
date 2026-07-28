@@ -278,7 +278,7 @@ export default function AdminBookingsPage() {
           <button
             key={qf.status}
             onClick={() => applyQuickFilter(qf.status)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-bold transition-colors ${
+            className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-xs font-bold transition-colors cursor-pointer ${
               activeQuickFilter === qf.status
                 ? qf.color + " shadow-xs"
                 : "border-border text-muted-foreground hover:bg-secondary"
@@ -304,7 +304,7 @@ export default function AdminBookingsPage() {
               placeholder="Ref, name, phone, zone..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-9 h-10 text-xs"
+              className="pl-9 h-11 min-h-[44px] text-xs"
             />
           </div>
         </div>
@@ -322,7 +322,7 @@ export default function AdminBookingsPage() {
               setActiveQuickFilter(e.target.value !== "ALL" ? e.target.value : null);
               setDateFilter("");
             }}
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1 flex h-11 min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {STATUS_FILTER_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -344,7 +344,7 @@ export default function AdminBookingsPage() {
               setActiveQuickFilter(null);
               setStatusFilter("ALL");
             }}
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1 flex h-11 min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
       </div>
@@ -536,7 +536,7 @@ export default function AdminBookingsPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => setSelectedBookingId(b.id)}
-                        className="h-8 font-semibold text-xs gap-1.5 rounded-xl"
+                        className="h-11 min-h-[44px] font-semibold text-xs gap-1.5 rounded-xl px-3"
                       >
                         <Eye className="h-3.5 w-3.5" /> Open
                       </Button>
