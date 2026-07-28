@@ -38,6 +38,12 @@ export interface PayMongoWebhookEvent {
   };
 }
 
+const REFUND_EVENTS = [
+  "refund.succeeded",
+  "payment.refunded",
+  "payment.refund.updated",
+];
+
 /**
  * Verifies PayMongo Webhook HMAC SHA-256 signature.
  * Header format: t=<timestamp>,te=<test_signature>,li=<live_signature>
@@ -166,6 +172,76 @@ export async function processPayMongoWebhookEvent(
       success: false,
       error: "Webhook livemode does not match configured PayMongo key mode",
       code: ErrorCode.BAD_REQUEST,
+    };
+  }
+
+  if (REFUND_EVENTS.includes(eventType)) {
+    const refundResource = eventPayload.data.attributes.data;
+    const refundStatus = refundResource?.attributes?.status;
+    const refundId = refundResource?.id;
+
+    if (!refundId?.startsWith("ref_")) {
+      logger.info("Refund webhook did not contain a direct refund resource", { eventId, eventType });
+      return { success: true, data: { eventId } };
+    }
+
+    const supabase = createAdminClient();
+    // The private table is service-role-only; customers and ordinary clients cannot reconcile refunds.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: refundRecord, error: refundLookupError } = await (supabase.from("payment_refunds") as any)
+      .select("id, booking_id")
+      .eq("paymongo_refund_id", refundId)
+      .maybeSingle();
+
+    if (refundLookupError) {
+      return {
+        success: false,
+        error: "Failed to reconcile PayMongo refund event",
+        code: ErrorCode.INTERNAL_ERROR,
+      };
+    }
+    if (!refundRecord) {
+      logger.info("Ignoring refund webhook for an unknown refund", { eventId, refundId });
+      return { success: true, data: { eventId } };
+    }
+
+    const finalStatus =
+      refundStatus === "succeeded" || eventType === "refund.succeeded"
+        ? "succeeded"
+        : refundStatus === "failed"
+          ? "failed"
+          : null;
+    if (!finalStatus) {
+      return { success: true, data: { eventId, bookingId: refundRecord.booking_id } };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: finalizeError } = await (supabase.rpc as any)(
+      "finalize_paymongo_refund_admin",
+      {
+        p_refund_id: refundRecord.id,
+        p_status: finalStatus,
+        p_paymongo_refund_id: refundId,
+        p_gateway_response: {
+          event_id: eventId,
+          event_type: eventType,
+          refund_id: refundId,
+          status: refundStatus,
+        },
+        p_failure_message: finalStatus === "failed" ? "PayMongo reported a failed refund." : null,
+      },
+    );
+    if (finalizeError) {
+      return {
+        success: false,
+        error: "Failed to finalize PayMongo refund event",
+        code: ErrorCode.INTERNAL_ERROR,
+      };
+    }
+
+    return {
+      success: true,
+      data: { eventId, bookingId: refundRecord.booking_id },
     };
   }
 

@@ -107,6 +107,7 @@ export interface AdminBookingDetail {
     status: string;
     paymentType: string;
     paymentMethod: string;
+    gatewayProvider: string | null;
     gatewayTransactionId: string | null;
     createdAt: string;
   }[];
@@ -361,7 +362,7 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
   if (canViewPayments === true) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error: paymentsError } = await (supabase.from("payments") as any)
-      .select("id, public_id, amount, status, payment_type, payment_method, gateway_transaction_id, created_at")
+      .select("id, public_id, amount, status, payment_type, payment_method, gateway_provider, gateway_transaction_id, created_at")
       .eq("booking_id", bookingId);
 
     if (paymentsError) throwQueryError("admin.bookings.detail.payments", paymentsError);
@@ -427,13 +428,14 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
       expiresAt: lockData?.expires_at || null,
     },
 
-    payments: ((paymentsData as Array<{ id: string; public_id: string; amount: number; status: string; payment_type: string; payment_method: string; gateway_transaction_id: string | null; created_at: string }>) || []).map((p) => ({
+    payments: ((paymentsData as Array<{ id: string; public_id: string; amount: number; status: string; payment_type: string; payment_method: string; gateway_provider: string | null; gateway_transaction_id: string | null; created_at: string }>) || []).map((p) => ({
       id: p.id,
       publicId: p.public_id,
       amount: Number(p.amount) || 0,
       status: p.status,
       paymentType: p.payment_type,
       paymentMethod: p.payment_method,
+      gatewayProvider: p.gateway_provider,
       gatewayTransactionId: p.gateway_transaction_id,
       createdAt: p.created_at,
     })),

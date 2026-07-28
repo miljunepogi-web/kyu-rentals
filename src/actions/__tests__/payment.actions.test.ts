@@ -1,4 +1,8 @@
-import { getPayMongoConfig, createPayMongoCheckoutSession } from "@/lib/api/paymongo";
+import {
+  createPayMongoCheckoutSession,
+  createPayMongoRefund,
+  getPayMongoConfig,
+} from "@/lib/api/paymongo";
 
 describe("Milestone 3.4 - PayMongo Integration Code Review Verification", () => {
   const originalEnv = process.env.NODE_ENV;
@@ -36,5 +40,34 @@ describe("Milestone 3.4 - PayMongo Integration Code Review Verification", () => 
       expect(result.data.checkoutSessionId).toContain("cs_mock_");
       expect(result.data.checkoutUrl).toContain("dashboard?booking=");
     }
+  });
+
+  test("creates a mock PayMongo refund without making a network request", async () => {
+    (process.env as Record<string, string>).NODE_ENV = "test";
+    process.env.PAYMONGO_SECRET_KEY = "sk_test_mock_paymongo_key_kyu_rentals";
+
+    const result = await createPayMongoRefund({
+      paymentId: "pay_test_123",
+      amount: 1000,
+      reason: "others",
+      notes: "KYU is unable to fulfill the cancelled booking.",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success && result.data) {
+      expect(result.data.refundId).toContain("ref_mock_");
+      expect(result.data.status).toBe("succeeded");
+    }
+  });
+
+  test("rejects refunds below PayMongo's minimum amount", async () => {
+    const result = await createPayMongoRefund({
+      paymentId: "pay_test_123",
+      amount: 0.99,
+      reason: "others",
+      notes: "Invalid amount test.",
+    });
+
+    expect(result.success).toBe(false);
   });
 });

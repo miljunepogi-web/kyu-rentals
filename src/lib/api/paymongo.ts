@@ -42,6 +42,99 @@ export interface PayMongoCheckoutSessionResponse {
   paymentIntentId?: string;
 }
 
+export interface CreatePayMongoRefundInput {
+  paymentId: string;
+  amount: number;
+  reason: "duplicate" | "fraudulent" | "others";
+  notes: string;
+}
+
+export interface PayMongoRefundResponse {
+  refundId: string;
+  status: string;
+  raw: Record<string, unknown>;
+}
+
+export async function createPayMongoRefund(
+  input: CreatePayMongoRefundInput
+): Promise<Result<PayMongoRefundResponse>> {
+  const { secretKey } = getPayMongoConfig();
+  const amountInCentavos = Math.round(input.amount * 100);
+
+  if (amountInCentavos < 100) {
+    return {
+      success: false,
+      error: "PayMongo refunds must be at least PHP 1.00.",
+      code: ErrorCode.BAD_REQUEST,
+    };
+  }
+
+  if (secretKey.startsWith("sk_test_mock")) {
+    if (process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Mock refunds are disabled in production.",
+        code: ErrorCode.BAD_REQUEST,
+      };
+    }
+    return {
+      success: true,
+      data: {
+        refundId: `ref_mock_${Date.now()}`,
+        status: "succeeded",
+        raw: { mode: "mock", amount: amountInCentavos },
+      },
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.paymongo.com/v1/refunds", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
+      },
+      body: JSON.stringify({
+        data: {
+          attributes: {
+            amount: amountInCentavos,
+            payment_id: input.paymentId,
+            reason: input.reason,
+            notes: input.notes,
+          },
+        },
+      }),
+    });
+    const responseJson = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: responseJson?.errors?.[0]?.detail || "PayMongo rejected the refund.",
+        code: ErrorCode.BAD_REQUEST,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        refundId: responseJson.data.id,
+        status: responseJson.data.attributes?.status || "pending",
+        raw: responseJson,
+      },
+    };
+  } catch (error) {
+    logger.error("PayMongo refund request outcome is uncertain", {
+      error: error instanceof Error ? error.message : "Unknown network error",
+    });
+    return {
+      success: false,
+      error: "PayMongo did not return a conclusive response. Review the PayMongo dashboard before retrying.",
+      code: ErrorCode.INTERNAL_ERROR,
+    };
+  }
+}
+
 /**
  * Creates a PayMongo Checkout Session for 30% reservation deposit payment.
  * Server-authoritative: Amount is passed strictly from pricing engine calculation.
