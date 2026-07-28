@@ -2,11 +2,19 @@ import { describe, expect, test } from "vitest";
 import { buildEmailConfirmationRedirect, getSafeAuthRedirectPath } from "@/lib/auth/redirects";
 
 describe("auth redirects", () => {
-  test("builds a production callback that preserves the selected package", () => {
-    expect(
-      buildEmailConfirmationRedirect("https://kyu-rentals.vercel.app", "/packages/kyu-mini/book"),
-    ).toBe("https://kyu-rentals.vercel.app/api/auth/callback?next=%2Fpackages%2Fkyu-mini%2Fbook");
-  });
+  test.each(["kyu-mini", "kyu-party-pro", "kyu-concert-master"])(
+    "builds a production callback that preserves the %s package",
+    (packageSlug) => {
+      expect(
+        buildEmailConfirmationRedirect(
+          "https://kyu-rentals.vercel.app",
+          `/packages/${packageSlug}/book`,
+        ),
+      ).toBe(
+        `https://kyu-rentals.vercel.app/api/auth/callback?next=%2Fpackages%2F${packageSlug}%2Fbook`,
+      );
+    },
+  );
 
   test("uses the current origin instead of a localhost fallback", () => {
     expect(
