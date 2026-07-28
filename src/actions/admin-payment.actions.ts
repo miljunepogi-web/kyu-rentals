@@ -19,8 +19,6 @@ export interface AdminPaymentActionResult {
   error?: string;
 }
 
-const PAYMENT_ADMIN_ROLES = ["admin", "super_admin", "franchise_owner", "support_staff"];
-
 export async function recordAdminPaymentAction(
   payload: RecordAdminPaymentPayload
 ): Promise<AdminPaymentActionResult> {
@@ -45,39 +43,31 @@ export async function recordAdminPaymentAction(
 
     // 2. Profile & Tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profile } = await (supabase.from("profiles") as any)
+    const { data: profile, error: profileError } = await (supabase.from("profiles") as any)
       .select("tenant_id, full_name")
       .eq("id", user.id)
       .eq("is_deleted", false)
       .maybeSingle();
 
-    if (!profile?.tenant_id) {
+    if (profileError || !profile?.tenant_id) {
       return { success: false, error: "Could not resolve tenant profile." };
     }
 
     const tenantId = profile.tenant_id;
     const operatorName = profile.full_name || "Staff Admin";
 
-    // 3. RBAC Check
+    // 3. Permission check. The database RPC repeats this check authoritatively.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: userRoles } = await (supabase.from("user_roles") as any)
-      .select("role_id")
-      .eq("user_id", user.id)
-      .eq("tenant_id", tenantId);
+    const { data: canManageFinancials, error: permissionError } = await (supabase.rpc as any)(
+      "has_permission",
+      {
+        p_permission_key: "financials.manage",
+        p_tenant_id: tenantId,
+      },
+    );
 
-    if (!userRoles || userRoles.length === 0) {
-      return { success: false, error: "Forbidden: Insufficient privileges." };
-    }
-
-    const roleIds = userRoles.map((r: { role_id: string }) => r.role_id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: validRoles } = await (supabase.from("roles") as any)
-      .select("name")
-      .in("id", roleIds)
-      .in("name", PAYMENT_ADMIN_ROLES);
-
-    if (!validRoles || validRoles.length === 0) {
-      return { success: false, error: "Forbidden: Insufficient administrative privileges." };
+    if (permissionError || canManageFinancials !== true) {
+      return { success: false, error: "Forbidden: financials.manage permission is required." };
     }
 
     const paymentAmount = Number(payload.amount);

@@ -432,14 +432,16 @@ export function AdminBookingDetailSheet({
                   <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-primary" /> Financial Breakdown
                   </h3>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowReceiptModal(true)}
-                    className="h-7 text-[11px] font-bold gap-1 rounded-lg"
-                  >
-                    <Receipt className="h-3 w-3" /> Official Receipt
-                  </Button>
+                  {detail.canViewPayments && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowReceiptModal(true)}
+                      className="h-7 text-[11px] font-bold gap-1 rounded-lg"
+                    >
+                      <Receipt className="h-3 w-3" /> Official Receipt
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-2 text-xs">
@@ -484,7 +486,7 @@ export function AdminBookingDetailSheet({
                   <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-primary" /> Payment Records & Collection
                   </h3>
-                  {detail.balanceAmount > 0 && !showPaymentForm && (
+                  {detail.canManagePayments && detail.balanceAmount > 0 && !showPaymentForm && (
                     <Button
                       size="sm"
                       onClick={() => {
@@ -590,7 +592,11 @@ export function AdminBookingDetailSheet({
                     </Button>
                   </form>
                 )}
-                {detail.payments.length === 0 ? (
+                {!detail.canViewPayments ? (
+                  <div className="text-xs text-muted-foreground italic py-1">
+                    Financial transaction access required.
+                  </div>
+                ) : detail.payments.length === 0 ? (
                   <div className="text-xs text-muted-foreground italic py-1">
                     No recorded payments for this booking.
                   </div>
