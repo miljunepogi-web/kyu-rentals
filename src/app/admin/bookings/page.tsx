@@ -243,7 +243,7 @@ export default function AdminBookingsPage() {
         </div>
         <div className="flex items-center gap-3">
           {hasActiveFilter && (
-            <Button variant="ghost" size="sm" onClick={clearAll} className="text-xs font-semibold text-muted-foreground h-9">
+            <Button variant="ghost" size="sm" onClick={clearAll} className="text-xs font-semibold text-muted-foreground h-11 min-h-[44px] px-3">
               Clear all filters ✕
             </Button>
           )}
@@ -251,7 +251,8 @@ export default function AdminBookingsPage() {
             variant="outline"
             onClick={() => fetchBookings(true)}
             disabled={isLoading}
-            className="h-9 font-semibold text-xs gap-2"
+            className="h-11 min-h-[44px] font-semibold text-xs gap-2 px-3"
+            aria-label="Refresh bookings"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Refresh</span>
@@ -266,7 +267,7 @@ export default function AdminBookingsPage() {
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          <Button variant="outline" size="sm" onClick={() => fetchBookings(false)} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={() => fetchBookings(false)} disabled={isLoading} className="h-11 min-h-[44px] px-3 gap-2" aria-label="Retry loading bookings">
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
             Retry
           </Button>
@@ -381,31 +382,49 @@ export default function AdminBookingsPage() {
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Package</th>
                 <th
-                  className="px-4 py-3 whitespace-nowrap cursor-pointer select-none hover:text-foreground transition-colors"
-                  onClick={() => toggleSort("eventDate")}
+                  className="px-4 py-1.5 whitespace-nowrap"
                   aria-sort={sortField === "eventDate" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                 >
-                  Event Date
-                  <SortIcon field="eventDate" active={sortField} dir={sortDir} />
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("eventDate")}
+                    className="inline-flex items-center gap-1 min-h-[44px] text-muted-foreground hover:text-foreground font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md px-1"
+                    aria-label="Sort by event date"
+                  >
+                    <span>Event Date</span>
+                    <SortIcon field="eventDate" active={sortField} dir={sortDir} />
+                  </button>
                 </th>
                 <th className="px-4 py-3">Status</th>
                 <th
-                  className="px-4 py-3 whitespace-nowrap hidden md:table-cell cursor-pointer select-none hover:text-foreground transition-colors"
-                  onClick={() => toggleSort("grandTotal")}
+                  className="px-4 py-1.5 whitespace-nowrap hidden md:table-cell"
                   aria-sort={sortField === "grandTotal" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                 >
-                  Total
-                  <SortIcon field="grandTotal" active={sortField} dir={sortDir} />
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("grandTotal")}
+                    className="inline-flex items-center gap-1 min-h-[44px] text-muted-foreground hover:text-foreground font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md px-1"
+                    aria-label="Sort by total"
+                  >
+                    <span>Total</span>
+                    <SortIcon field="grandTotal" active={sortField} dir={sortDir} />
+                  </button>
                 </th>
                 <th className="px-4 py-3 whitespace-nowrap hidden lg:table-cell">Balance Due</th>
                 <th className="px-4 py-3 whitespace-nowrap hidden xl:table-cell">Zone</th>
                 <th
-                  className="px-4 py-3 whitespace-nowrap hidden xl:table-cell cursor-pointer select-none hover:text-foreground transition-colors"
-                  onClick={() => toggleSort("createdAt")}
+                  className="px-4 py-1.5 whitespace-nowrap hidden xl:table-cell"
                   aria-sort={sortField === "createdAt" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                 >
-                  Booked On
-                  <SortIcon field="createdAt" active={sortField} dir={sortDir} />
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("createdAt")}
+                    className="inline-flex items-center gap-1 min-h-[44px] text-muted-foreground hover:text-foreground font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md px-1"
+                    aria-label="Sort by booked date"
+                  >
+                    <span>Booked On</span>
+                    <SortIcon field="createdAt" active={sortField} dir={sortDir} />
+                  </button>
                 </th>
                 <th className="px-4 py-3 text-right">Action</th>
               </tr>

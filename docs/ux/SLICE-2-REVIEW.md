@@ -1,19 +1,23 @@
 # Slice 2 Review Package: Admin Bookings List & Detail View UX Polish
 
-## 1. Executive Summary
-Slice 2 targets the Admin Booking Ledger (`src/app/admin/bookings/page.tsx`) and the Admin Booking Detail Drawer (`src/components/admin/AdminBookingDetailSheet.tsx`).
-The polish pass addresses mobile container responsiveness, quick-filter touch target compliance, table action button target sizes, and async loading spinners.
+## 1. Executive Summary & Architectural Corrections
+
+Following the Chief Architect's review of Slice 2, two key accessibility and touch-target corrections were implemented:
+1. **Keyboard-Accessible Sortable Table Headers:** Replaced direct `onClick` behavior on `<th>` elements in `src/app/admin/bookings/page.tsx` with focusable `<button type="button">` controls inside each header cell. Added explicit `aria-label` values (`"Sort by event date"`, `"Sort by total"`, `"Sort by booked date"`), focus rings, and maintained parent `<th>` `aria-sort` announcements.
+2. **Project Touch-Target Standard Coverage (44px Minimum):** Applied `min-h-[44px]` height bounds and `h-11` sizing across Refresh, Retry, Clear All Filters, quick-filter pills, Search/Status/Date inputs, table `"Open"` action buttons, and slide-over drawer form controls.
 
 ---
 
-## 2. Complete List of Changed Sections
+## 2. Complete List of Changed Files and Sections
 
 ### A. `src/app/admin/bookings/page.tsx`
 | Line Numbers | Category | Purpose / Description |
 | :--- | :--- | :--- |
-| **Lines 278-290** | `touch targets` | Upgraded quick-filter pill buttons (`Today's Events`, `Awaiting Deposit`, `Cancellations`, `Completed`) with `min-h-[44px] cursor-pointer py-2` to meet 44px minimum target guidelines on touchscreens. |
-| **Lines 303-348** | `touch targets` | Upgraded Search input, Status filter `<select>`, and Event Date `<input>` with `h-11 min-h-[44px]` for easy touch operation. |
-| **Lines 535-542** | `touch targets` | Upgraded table action `"Open"` buttons with `h-11 min-h-[44px] px-3` touch targets. |
+| **Lines 246-270** | `touch targets / accessibility` | Upgraded `Clear all filters`, `Refresh`, and `Retry` buttons to `min-h-[44px] h-11 px-3` touch target height. Added explicit `aria-label="Refresh bookings"` and `aria-label="Retry loading bookings"`. |
+| **Lines 278-290** | `touch targets` | Upgraded quick-filter pill buttons (`Today's Events`, `Awaiting Deposit`, `Cancellations`, `Completed`) to `min-h-[44px] cursor-pointer py-2` to satisfy the 44px minimum target standard. |
+| **Lines 303-348** | `touch targets` | Upgraded Search input, Status filter `<select>`, and Event Date `<input>` to `h-11 min-h-[44px]`. |
+| **Lines 380-415** | `accessibility / keyboard navigation` | Replaced clickable `<th>` elements with keyboard-accessible `<button type="button">` controls inside header cells. Added `aria-label="Sort by event date"`, `aria-label="Sort by total"`, `aria-label="Sort by booked date"`, focus rings, and preserved parent `<th>` `aria-sort` state. |
+| **Lines 535-542** | `touch targets` | Upgraded table action `"Open"` buttons to `h-11 min-h-[44px] px-3` touch targets. |
 
 ### B. `src/components/admin/AdminBookingDetailSheet.tsx`
 | Line Numbers | Category | Purpose / Description |
@@ -25,17 +29,14 @@ The polish pass addresses mobile container responsiveness, quick-filter touch ta
 
 ---
 
-## 3. Explicit Confirmation of Logic Integrity
+## 3. Explicit Confirmation of Logic & Branch Strategy
 
-I explicitly confirm that:
-- Customer `BookingWizard.tsx` was **NOT MODIFIED**.
-- Backend actions, Supabase queries, RPCs, and migrations were **NOT MODIFIED**.
-- PayMongo gateway initializations and refund processors were **NOT MODIFIED**.
-- Business rules, state transition matrices, and authorization checks were **NOT MODIFIED**.
+- **Logic Integrity:** I explicitly confirm that customer `BookingWizard.tsx`, backend server actions, Supabase queries, database triggers, migrations, PayMongo gateway behavior, authorization checks, and booking state transition matrices were **NOT MODIFIED**.
+- **Branch Strategy:** Branch `feat/slice2-admin-bookings-ux` is branched directly from `feat/slice1-customer-booking-wizard-ux`. Therefore, its PR will target `feat/slice1-customer-booking-wizard-ux` (or `main` after Slice 1 is merged), ensuring **zero duplicate Slice 1 commits** are created against `main`.
 
 ---
 
-## 4. Verification Suite Results
+## 4. Exact Execution Output of Verification Suite
 
 ### A. `npm test`
 ```
@@ -72,12 +73,19 @@ I explicitly confirm that:
 
 ---
 
-## 5. Viewport Layout & Visual Verification Evidence
+## 5. Keyboard & Viewport Verification Summary
+
+- **Keyboard Navigation (Sortable Table Headers):**
+  - Pressing `Tab` focuses the sortable column trigger `<button type="button">` with a visible focus ring (`focus-visible:ring-2 focus-visible:ring-primary`).
+  - Pressing `Enter` or `Space` triggers `toggleSort()`, toggling ascending/descending direction and updating `aria-sort` on the parent `<th>`.
+  - Screen readers announce `"Sort by event date, button"`, `"Sort by total, button"`, and `"Sort by booked date, button"`.
 
 - **360px Mobile Viewport:**
-  - Slide-over drawer opens cleanly without horizontal overflow (`p-4 sm:p-6 md:p-8`). Reference numbers and status badges wrap cleanly.
-  - Filter pills and table action buttons provide `44px+` touch hit targets.
+  - Slide-over drawer opens cleanly without horizontal overflow (`p-4 sm:p-6 md:p-8`).
+  - All interactive buttons (Refresh, Retry, Clear, Filter pills, Open buttons) provide `44px+` touch targets.
+
 - **390px Mobile Viewport:**
-  - Search and filter bar grid items fit comfortably with 44px target heights.
+  - Search input, Status select, and Date picker inputs render with `h-11 min-h-[44px]` touch targets.
+
 - **Desktop Viewport (>=1024px):**
-  - Table grid renders with sortable columns, custom status badge pills, and slide-over drawer overlay.
+  - Table grid renders sortable columns, custom status badge pills, and slide-over drawer overlay smoothly.
