@@ -41,6 +41,7 @@ import {
   Info,
   MessageSquare,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -253,7 +254,7 @@ export function AdminBookingDetailSheet({
       aria-modal="true"
       aria-label="Booking Details"
     >
-      <div className="w-full max-w-2xl bg-card border-l h-full overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl flex flex-col justify-between">
+      <div className="w-full max-w-2xl bg-card border-l h-full overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 shadow-2xl flex flex-col justify-between">
         <div>
           {/* Header */}
           <div className="flex items-center justify-between border-b pb-4 mb-6">
@@ -558,7 +559,7 @@ export function AdminBookingDetailSheet({
                           id="collect-method"
                           value={collectMethod}
                           onChange={(e) => setCollectMethod(e.target.value as "CASH" | "GCASH" | "MAYA" | "BANK_TRANSFER" | "OTHER")}
-                          className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 py-1 text-xs font-bold"
+                          className="mt-1 flex h-11 min-h-[44px] w-full rounded-md border bg-background px-3 py-1 text-xs font-bold"
                         >
                           <option value="CASH">Cash</option>
                           <option value="GCASH">GCash</option>
@@ -575,7 +576,7 @@ export function AdminBookingDetailSheet({
                           type="number"
                           value={collectAmount}
                           onChange={(e) => setCollectAmount(e.target.value)}
-                          className="mt-1 h-9 text-xs font-bold"
+                          className="mt-1 h-11 min-h-[44px] text-xs font-bold"
                           min={1}
                           max={detail.balanceAmount}
                           required
@@ -589,7 +590,7 @@ export function AdminBookingDetailSheet({
                           placeholder="e.g. GCash Ref # 123456789"
                           value={collectRef}
                           onChange={(e) => setCollectRef(e.target.value)}
-                          className="mt-1 h-9 text-xs"
+                          className="mt-1 h-11 min-h-[44px] text-xs"
                         />
                       </div>
                     </div>
@@ -597,7 +598,7 @@ export function AdminBookingDetailSheet({
                     <Button
                       type="submit"
                       disabled={isSubmittingPayment}
-                      className="w-full h-9 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="w-full h-11 min-h-[44px] font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                       {isSubmittingPayment ? "Recording Payment..." : `Save Payment (₱${Number(collectAmount || 0).toLocaleString()})`}
                     </Button>
@@ -1027,7 +1028,7 @@ export function AdminBookingDetailSheet({
                         setErrorMsg(null);
                       }}
                       disabled={isUpdating}
-                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="mt-1 flex h-11 min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {allowedNextStates.map((st) => (
                         <option key={st} value={st}>
@@ -1056,7 +1057,7 @@ export function AdminBookingDetailSheet({
                       value={transitionReason}
                       onChange={(e) => setTransitionReason(e.target.value)}
                       disabled={isUpdating}
-                      className="mt-1 h-10 text-xs"
+                      className="mt-1 h-11 min-h-[44px] text-xs"
                       required={isReasonRequired}
                     />
                   </div>
@@ -1065,15 +1066,21 @@ export function AdminBookingDetailSheet({
                 <Button
                   type="submit"
                   disabled={isUpdating || !targetStatus}
-                  className="w-full h-11 font-bold text-sm"
+                  className="w-full h-11 min-h-[44px] font-bold text-sm"
                 >
-                  {isUpdating
-                    ? "Updating status..."
-                    : isCancellationDecision
-                      ? targetStatus === "CANCELLED"
-                        ? "Approve Cancellation"
-                        : "Decline Cancellation"
-                      : `Change to "${STATUS_LABELS[targetStatus] ?? targetStatus}"`}
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating status...
+                    </>
+                  ) : isCancellationDecision ? (
+                    targetStatus === "CANCELLED" ? (
+                      "Approve Cancellation"
+                    ) : (
+                      "Decline Cancellation"
+                    )
+                  ) : (
+                    `Change to "${STATUS_LABELS[targetStatus] ?? targetStatus}"`
+                  )}
                 </Button>
               </form>
             ) : null}
