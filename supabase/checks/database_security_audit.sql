@@ -6,7 +6,7 @@
 --   paths on privileged functions.
 --
 -- Expected clean result:
---   All five queries return zero rows.
+--   All six queries return zero rows.
 -- ============================================================================
 
 -- 1. Every public base table should have RLS enabled.
@@ -81,3 +81,26 @@ WHERE namespace.nspname = 'public'
       POSITION('delete from public.inventory_locks' IN LOWER(pg_catalog.pg_get_functiondef(procedure.oid))) = 0
       OR POSITION('session_id' IN LOWER(pg_catalog.pg_get_functiondef(procedure.oid))) = 0
   );
+
+-- 6. Critical admin mutation functions must authorize inside the database.
+WITH required_function(permission_key, function_name) AS (
+    VALUES
+        ('financials.manage', 'record_admin_payment_atomic'),
+        ('inventory.manage', 'assign_inventory_unit_atomic'),
+        ('bookings.manage', 'transition_booking_status_admin')
+)
+SELECT
+    required_function.function_name,
+    required_function.permission_key
+FROM required_function
+LEFT JOIN pg_catalog.pg_proc AS procedure
+  ON procedure.proname = required_function.function_name
+LEFT JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = procedure.pronamespace
+ AND namespace.nspname = 'public'
+WHERE procedure.oid IS NULL
+   OR POSITION('auth.uid()' IN LOWER(pg_catalog.pg_get_functiondef(procedure.oid))) = 0
+   OR POSITION(
+       'has_permission(''' || required_function.permission_key || ''''
+       IN LOWER(pg_catalog.pg_get_functiondef(procedure.oid))
+   ) = 0;

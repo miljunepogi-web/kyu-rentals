@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { getBookingCustomerContact } from "@/queries/booking-snapshot";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -132,6 +133,7 @@ export async function getAdminDeliverySchedule(
     assigned_delivery_personnel_id: string | null;
     vehicle_info: string | null;
     created_at: string;
+    snapshot: unknown;
     profiles: { full_name: string; phone: string | null } | null;
     packages: { name: string } | null;
     assigned_personnel?: { full_name: string } | null;
@@ -141,7 +143,7 @@ export async function getAdminDeliverySchedule(
   let query = (supabase as any).from("bookings")
     .select(`
       id, public_id, event_date, start_time, delivery_address, delivery_zone, status,
-      assigned_delivery_personnel_id, vehicle_info, created_at,
+      assigned_delivery_personnel_id, vehicle_info, created_at, snapshot,
       profiles!customer_id (full_name, phone),
       packages!package_id (name),
       assigned_personnel:profiles!assigned_delivery_personnel_id (full_name)
@@ -167,22 +169,25 @@ export async function getAdminDeliverySchedule(
 
   if (error || !data) return [];
 
-  return data.map((b) => ({
-    id: b.id,
-    publicId: b.public_id,
-    customerName: b.profiles?.full_name || "Customer",
-    customerPhone: b.profiles?.phone || "—",
-    packageName: b.packages?.name || "Package",
-    eventDate: b.event_date,
-    startTime: b.start_time,
-    deliveryAddress: b.delivery_address,
-    deliveryZone: b.delivery_zone,
-    status: b.status,
-    assignedPersonnelId: b.assigned_delivery_personnel_id,
-    assignedPersonnelName: b.assigned_personnel?.full_name || null,
-    vehicleInfo: b.vehicle_info,
-    createdAt: b.created_at,
-  }));
+  return data.map((b) => {
+    const customer = getBookingCustomerContact(b.snapshot);
+    return {
+      id: b.id,
+      publicId: b.public_id,
+      customerName: customer.fullName || b.profiles?.full_name || "Customer",
+      customerPhone: customer.phone || b.profiles?.phone || "—",
+      packageName: b.packages?.name || "Package",
+      eventDate: b.event_date,
+      startTime: b.start_time,
+      deliveryAddress: b.delivery_address,
+      deliveryZone: b.delivery_zone,
+      status: b.status,
+      assignedPersonnelId: b.assigned_delivery_personnel_id,
+      assignedPersonnelName: b.assigned_personnel?.full_name || null,
+      vehicleInfo: b.vehicle_info,
+      createdAt: b.created_at,
+    };
+  });
 }
 
 /**

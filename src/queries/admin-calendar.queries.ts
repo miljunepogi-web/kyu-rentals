@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { getBookingCustomerContact } from "@/queries/booking-snapshot";
 import { throwQueryError } from "@/queries/query-error";
 
 export interface AdminCalendarEvent {
@@ -37,7 +38,7 @@ export async function getAdminCalendarEvents(
     .from("bookings")
     .select(`
       id, public_id, status, event_date, start_time, duration_hours, event_end_time,
-      delivery_address, delivery_zone, assigned_unit_id, assigned_delivery_personnel_id,
+      delivery_address, delivery_zone, assigned_unit_id, assigned_delivery_personnel_id, snapshot,
       profiles!customer_id (full_name, phone),
       packages!package_id (name),
       inventory_units!assigned_unit_id (serial_number),
@@ -70,12 +71,14 @@ export async function getAdminCalendarEvents(
     assigned_unit_id?: string | null;
     inventory_units?: { serial_number?: string | null } | null;
     assigned_delivery_personnel_id?: string | null;
+    snapshot?: unknown;
     assigned_personnel?: { full_name?: string | null } | null;
     profiles?: { full_name?: string | null; phone?: string | null } | null;
     packages?: { name?: string | null } | null;
   }
 
   const events: AdminCalendarEvent[] = (rawBookings as unknown as RawBookingRecord[]).map((b) => {
+    const customer = getBookingCustomerContact(b.snapshot);
     const isPickup = ["COMPLETED", "RETRIEVED", "PICKUP_SCHEDULED", "OUT_FOR_PICKUP", "PICKED_UP"].includes(b.status);
     const isActive = ["RENTAL_ACTIVE", "DELIVERED"].includes(b.status);
     const eventType = isPickup ? "PICKUP" : isActive ? "ACTIVE_RENTAL" : "DELIVERY";
@@ -83,8 +86,8 @@ export async function getAdminCalendarEvents(
     return {
       id: b.id,
       publicId: b.public_id,
-      customerName: b.profiles?.full_name || "Customer",
-      customerPhone: b.profiles?.phone || "N/A",
+      customerName: customer.fullName || b.profiles?.full_name || "Customer",
+      customerPhone: customer.phone || b.profiles?.phone || "N/A",
       packageName: b.packages?.name || "Karaoke Package",
       eventDate: b.event_date,
       startTime: b.start_time || "09:00",

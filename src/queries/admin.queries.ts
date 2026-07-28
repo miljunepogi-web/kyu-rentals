@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { getBookingCustomerContact } from "@/queries/booking-snapshot";
 import { throwQueryError } from "@/queries/query-error";
 
 export interface ScheduleItem {
@@ -84,6 +85,8 @@ export interface AdminBookingDetail {
   grandTotal: number;
   depositAmount: number;
   balanceAmount: number;
+  canViewPayments: boolean;
+  canManagePayments: boolean;
 
   // Operational Snapshot Items
   assignedUnitId: string | null;
@@ -127,7 +130,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bookingsData, error: bookingsError } = await (supabase.from("bookings") as any)
     .select(`
-      id, public_id, status, event_date, start_time, grand_total, deposit_amount, balance_amount, delivery_zone,
+      id, public_id, status, event_date, start_time, grand_total, deposit_amount, balance_amount, delivery_zone, snapshot,
       profiles!customer_id (full_name),
       packages!package_id (name),
       assigned_personnel:profiles!assigned_delivery_personnel_id (full_name)
@@ -170,23 +173,27 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     event_date: string;
     start_time: string;
     delivery_zone: string | null;
+    snapshot?: unknown;
     profiles?: { full_name?: string | null } | null;
     packages?: { name?: string | null } | null;
     assigned_personnel?: { full_name?: string | null } | null;
   }
 
   // Today's schedule timeline items
-  const scheduleTimeline: ScheduleItem[] = (todayBookings as unknown as RawTodayBookingRecord[]).map((b) => ({
-    id: b.id,
-    publicId: b.public_id,
-    customerName: b.profiles?.full_name || "Customer",
-    packageName: b.packages?.name || "Karaoke Setup",
-    eventDate: b.event_date,
-    startTime: b.start_time || "09:00 AM",
-    status: b.status,
-    deliveryZone: b.delivery_zone || "Metro Manila",
-    assignedDriverName: b.assigned_personnel?.full_name || null,
-  }));
+  const scheduleTimeline: ScheduleItem[] = (todayBookings as unknown as RawTodayBookingRecord[]).map((b) => {
+    const customer = getBookingCustomerContact(b.snapshot);
+    return {
+      id: b.id,
+      publicId: b.public_id,
+      customerName: customer.fullName || b.profiles?.full_name || "Customer",
+      packageName: b.packages?.name || "Karaoke Setup",
+      eventDate: b.event_date,
+      startTime: b.start_time || "09:00 AM",
+      status: b.status,
+      deliveryZone: b.delivery_zone || "Metro Manila",
+      assignedDriverName: b.assigned_personnel?.full_name || null,
+    };
+  });
 
   // Inventory availability & utilization percentages
   const { data: inventoryData, error: inventoryError } = await supabase
@@ -261,7 +268,7 @@ export async function getAdminBookings(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from("bookings") as any)
     .select(`
-      id, public_id, status, event_date, grand_total, deposit_amount, balance_amount,
+      id, public_id, status, event_date, grand_total, deposit_amount, balance_amount, snapshot,
       delivery_zone, created_at,
       profiles!customer_id (full_name, phone),
       packages!package_id (name)
@@ -293,24 +300,28 @@ export async function getAdminBookings(
     balance_amount: number;
     delivery_zone: string | null;
     created_at?: string;
+    snapshot?: unknown;
     profiles?: { full_name?: string | null; phone?: string | null } | null;
     packages?: { name?: string | null } | null;
   }
 
-  return (data as unknown as RawAdminBookingRow[]).map((b) => ({
-    id: b.id,
-    publicId: b.public_id,
-    customerName: b.profiles?.full_name || "Guest Customer",
-    customerPhone: b.profiles?.phone || "N/A",
-    packageName: b.packages?.name || "Karaoke Package",
-    eventDate: b.event_date,
-    status: b.status,
-    grandTotal: Number(b.grand_total) || 0,
-    depositAmount: Number(b.deposit_amount) || 0,
-    balanceAmount: Number(b.balance_amount) || 0,
-    deliveryZone: b.delivery_zone || "Metro Manila",
-    createdAt: b.created_at || new Date().toISOString(),
-  }));
+  return (data as unknown as RawAdminBookingRow[]).map((b) => {
+    const customer = getBookingCustomerContact(b.snapshot);
+    return {
+      id: b.id,
+      publicId: b.public_id,
+      customerName: customer.fullName || b.profiles?.full_name || "Guest Customer",
+      customerPhone: customer.phone || b.profiles?.phone || "N/A",
+      packageName: b.packages?.name || "Karaoke Package",
+      eventDate: b.event_date,
+      status: b.status,
+      grandTotal: Number(b.grand_total) || 0,
+      depositAmount: Number(b.deposit_amount) || 0,
+      balanceAmount: Number(b.balance_amount) || 0,
+      deliveryZone: b.delivery_zone || "Metro Manila",
+      createdAt: b.created_at || new Date().toISOString(),
+    };
+  });
 }
 
 export async function getAdminBookingDetail(bookingId: string): Promise<AdminBookingDetail | null> {
@@ -322,7 +333,7 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
       id, public_id, tenant_id, status, created_at, event_date, start_time, duration_hours,
       event_end_time, delivery_address, delivery_zone, special_instructions,
       subtotal_amount, surcharge_amount, delivery_fee, discount_amount,
-      grand_total, deposit_amount, balance_amount, assigned_unit_id,
+      grand_total, deposit_amount, balance_amount, assigned_unit_id, snapshot,
       assigned_delivery_personnel_id, vehicle_info,
       profiles!customer_id (full_name, email, phone),
       packages!package_id (name, slug),
@@ -336,34 +347,67 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
   if (error) throwQueryError("admin.bookings.detail", error);
   if (!b) return null;
 
-  // Fetch related payments
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: paymentsData } = await (supabase.from("payments") as any)
-    .select("id, public_id, amount, status, payment_type, payment_method, gateway_transaction_id, created_at")
-    .eq("booking_id", bookingId);
+  const [
+    { data: canViewPayments, error: viewPaymentsPermissionError },
+    { data: canManagePayments, error: managePaymentsPermissionError },
+  ] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)("has_permission", {
+      p_permission_key: "financials.view",
+      p_tenant_id: b.tenant_id,
+    }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)("has_permission", {
+      p_permission_key: "financials.manage",
+      p_tenant_id: b.tenant_id,
+    }),
+  ]);
+
+  if (viewPaymentsPermissionError) {
+    throwQueryError("admin.bookings.detail.permissions.view_payments", viewPaymentsPermissionError);
+  }
+  if (managePaymentsPermissionError) {
+    throwQueryError("admin.bookings.detail.permissions.manage_payments", managePaymentsPermissionError);
+  }
+
+  let paymentsData: unknown[] = [];
+  if (canViewPayments === true) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error: paymentsError } = await (supabase.from("payments") as any)
+      .select("id, public_id, amount, status, payment_type, payment_method, gateway_transaction_id, created_at")
+      .eq("booking_id", bookingId);
+
+    if (paymentsError) throwQueryError("admin.bookings.detail.payments", paymentsError);
+    paymentsData = data || [];
+  }
 
   // Fetch timeline events
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: timelineData } = await (supabase.from("booking_timeline_events") as any)
+  const { data: timelineData, error: timelineError } = await (supabase.from("booking_timeline_events") as any)
     .select("id, from_status, to_status, event_label, event_description, performed_by_role, created_at")
     .eq("booking_id", bookingId)
     .order("created_at", { ascending: true });
 
   // Fetch lock status
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lockData } = await (supabase.from("inventory_locks") as any)
+  const { data: lockData, error: lockError } = await (supabase.from("inventory_locks") as any)
     .select("expires_at")
     .eq("session_id", bookingId)
     .maybeSingle();
+
+  if (timelineError) throwQueryError("admin.bookings.detail.timeline", timelineError);
+  if (lockError) throwQueryError("admin.bookings.detail.lock", lockError);
+
+  const customer = getBookingCustomerContact(b.snapshot);
 
   return {
     id: b.id,
     publicId: b.public_id,
     tenantId: b.tenant_id,
     createdAt: b.created_at,
-    customerName: b.profiles?.full_name || "Guest Customer",
-    customerEmail: b.profiles?.email || "customer@example.com",
-    customerPhone: b.profiles?.phone || "N/A",
+    customerName: customer.fullName || b.profiles?.full_name || "Guest Customer",
+    customerEmail: customer.email || b.profiles?.email || "customer@example.com",
+    customerPhone: customer.phone || b.profiles?.phone || "N/A",
     packageName: b.packages?.name || "Karaoke Package",
     packageSlug: b.packages?.slug || "kyu-party-pro",
     eventDate: b.event_date,
@@ -382,6 +426,8 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
     grandTotal: Number(b.grand_total) || 0,
     depositAmount: Number(b.deposit_amount) || 0,
     balanceAmount: Number(b.balance_amount) || 0,
+    canViewPayments: canViewPayments === true,
+    canManagePayments: canManagePayments === true,
 
     assignedUnitId: b.assigned_unit_id || null,
     assignedUnitSerial: b.inventory_units?.serial_number || null,
