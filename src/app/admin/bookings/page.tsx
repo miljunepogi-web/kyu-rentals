@@ -230,6 +230,7 @@ export default function AdminBookingsPage() {
             onClick={() => fetchBookings(true)}
             disabled={isLoading}
             className="h-9 font-semibold text-xs gap-2"
+            aria-label="Refresh bookings"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Refresh</span>

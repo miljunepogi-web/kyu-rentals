@@ -70,6 +70,7 @@ export default function AdminCustomersPage() {
           onClick={loadCustomers}
           disabled={isLoading}
           className="h-9 gap-1.5 font-semibold text-xs rounded-xl"
+          aria-label="Refresh customer directory"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           Refresh Directory
