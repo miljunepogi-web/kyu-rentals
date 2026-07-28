@@ -12,18 +12,6 @@ export const tenantSettingsSchema = z.object({
     .min(0, "Reservation fee percentage cannot be negative.")
     .max(100, "Reservation fee percentage cannot exceed 100%."),
   overtimeRatePerHour: z.number().min(0, "Overtime rate cannot be negative."),
-  cancellationWindowFullRefundHrs: z
-    .number()
-    .int("Full refund window must be an integer (hours).")
-    .positive("Full refund window must be a positive integer."),
-  cancellationWindowPartialRefundHrs: z
-    .number()
-    .int("Partial refund window must be an integer (hours).")
-    .positive("Partial refund window must be a positive integer."),
-  partialRefundPct: z
-    .number()
-    .min(0, "Partial refund percentage cannot be negative.")
-    .max(100, "Partial refund percentage cannot exceed 100%."),
   bookingExpiryHours: z
     .number()
     .int("Booking expiry must be an integer (hours).")

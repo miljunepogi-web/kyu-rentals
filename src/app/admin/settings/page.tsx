@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { updateTenantSettingsAction } from "@/actions/admin-settings.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+import { CUSTOMER_CANCELLATION_SUMMARY } from "@/config/cancellation-policy.config";
 
 type SettingsTab = "BUSINESS" | "PRICING" | "POLICIES";
 
@@ -28,9 +30,6 @@ export default function AdminSettingsPage() {
   const [reservationPct, setReservationPct] = useState(30);
   const [overtimeRate, setOvertimeRate] = useState(300);
 
-  const [fullRefundHrs, setFullRefundHrs] = useState(72);
-  const [partialRefundHrs, setPartialRefundHrs] = useState(24);
-  const [partialRefundPct, setPartialRefundPct] = useState(50);
   const [expiryHours, setExpiryHours] = useState(2);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,9 +51,6 @@ export default function AdminSettingsPage() {
       currencySymbol: "₱",
       reservationPct,
       overtimeRatePerHour: overtimeRate,
-      cancellationWindowFullRefundHrs: fullRefundHrs,
-      cancellationWindowPartialRefundHrs: partialRefundHrs,
-      partialRefundPct,
       bookingExpiryHours: expiryHours,
     });
 
@@ -76,7 +72,7 @@ export default function AdminSettingsPage() {
           Business & Tenant Configuration
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Configure business identity, deposit percentages, overtime pricing, and cancellation policies.
+          Configure business identity, deposit pricing, booking expiry, and the published cancellation policy.
         </p>
       </div>
 
@@ -223,58 +219,18 @@ export default function AdminSettingsPage() {
 
         {activeTab === "POLICIES" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="full-refund-hrs" className="text-xs font-bold">
-                  Full Refund Window (Hours)
-                </Label>
-                <Input
-                  id="full-refund-hrs"
-                  type="number"
-                  min={1}
-                  value={fullRefundHrs}
-                  onChange={(e) => setFullRefundHrs(Number(e.target.value))}
-                  disabled={isSubmitting}
-                  className="mt-1 text-xs h-10"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="partial-refund-hrs" className="text-xs font-bold">
-                  Partial Refund Window (Hours)
-                </Label>
-                <Input
-                  id="partial-refund-hrs"
-                  type="number"
-                  min={1}
-                  value={partialRefundHrs}
-                  onChange={(e) => setPartialRefundHrs(Number(e.target.value))}
-                  disabled={isSubmitting}
-                  className="mt-1 text-xs h-10"
-                  required
-                />
-              </div>
+            <div>
+              <h2 className="text-sm font-bold">Published Customer Policy</h2>
+              <ul className="mt-3 space-y-2 text-xs leading-5 text-muted-foreground">
+                {CUSTOMER_CANCELLATION_SUMMARY.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+              <Link href="/policies/cancellation" target="_blank" className="mt-3 inline-block text-xs font-semibold text-primary underline underline-offset-2">
+                Open published policy
+              </Link>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="partial-refund-pct" className="text-xs font-bold">
-                  Partial Refund Percentage (%)
-                </Label>
-                <Input
-                  id="partial-refund-pct"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={partialRefundPct}
-                  onChange={(e) => setPartialRefundPct(Number(e.target.value))}
-                  disabled={isSubmitting}
-                  className="mt-1 text-xs h-10"
-                  required
-                />
-              </div>
-
               <div>
                 <Label htmlFor="expiry-hours" className="text-xs font-bold">
                   Unpaid Booking Expiry (Hours)
@@ -289,6 +245,9 @@ export default function AdminSettingsPage() {
                   className="mt-1 text-xs h-10"
                   required
                 />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Paid cancellation requests require admin review.
+                </p>
               </div>
             </div>
           </div>

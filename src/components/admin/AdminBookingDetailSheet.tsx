@@ -185,7 +185,9 @@ export function AdminBookingDetailSheet({
       return;
     }
 
-    const reasonRequired = REASON_REQUIRED_STATUSES.has(targetStatus);
+    const reasonRequired =
+      REASON_REQUIRED_STATUSES.has(targetStatus) ||
+      detail.status === "CANCELLATION_REQUESTED";
     if (reasonRequired && (!transitionReason.trim() || transitionReason.trim().length < 3)) {
       setErrorMsg("An administrative reason is required for this status change (at least 3 characters)");
       return;
@@ -232,7 +234,9 @@ export function AdminBookingDetailSheet({
   };
 
   const allowedNextStates = detail ? LEGAL_TRANSITIONS[detail.status] || [] : [];
-  const isReasonRequired = REASON_REQUIRED_STATUSES.has(targetStatus);
+  const isCancellationDecision = detail?.status === "CANCELLATION_REQUESTED";
+  const isReasonRequired =
+    REASON_REQUIRED_STATUSES.has(targetStatus) || isCancellationDecision;
   const isTerminalState = detail && allowedNextStates.length === 0;
 
   return (
@@ -913,7 +917,8 @@ export function AdminBookingDetailSheet({
             ) : allowedNextStates.length > 0 ? (
               <form onSubmit={handleExecuteTransition} className="space-y-4">
                 <h4 className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4" /> Change Booking Status
+                  <ShieldCheck className="h-4 w-4" />{" "}
+                  {isCancellationDecision ? "Review Cancellation Request" : "Change Booking Status"}
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -931,7 +936,11 @@ export function AdminBookingDetailSheet({
                     >
                       {allowedNextStates.map((st) => (
                         <option key={st} value={st}>
-                          {STATUS_LABELS[st] ?? st.replace(/_/g, " ")}
+                          {isCancellationDecision
+                            ? st === "CANCELLED"
+                              ? "Approve cancellation"
+                              : "Decline and keep confirmed"
+                            : STATUS_LABELS[st] ?? st.replace(/_/g, " ")}
                         </option>
                       ))}
                     </select>
@@ -939,7 +948,8 @@ export function AdminBookingDetailSheet({
 
                   <div>
                     <Label htmlFor="reason" className="text-xs font-bold">
-                      Admin Reason {isReasonRequired ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(optional)</span>}
+                      {isCancellationDecision ? "Decision Notes" : "Admin Reason"}{" "}
+                      {isReasonRequired ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(optional)</span>}
                     </Label>
                     <Input
                       id="reason"
@@ -964,7 +974,11 @@ export function AdminBookingDetailSheet({
                 >
                   {isUpdating
                     ? "Updating status..."
-                    : `Change to "${STATUS_LABELS[targetStatus] ?? targetStatus}"`}
+                    : isCancellationDecision
+                      ? targetStatus === "CANCELLED"
+                        ? "Approve Cancellation"
+                        : "Decline Cancellation"
+                      : `Change to "${STATUS_LABELS[targetStatus] ?? targetStatus}"`}
                 </Button>
               </form>
             ) : null}
