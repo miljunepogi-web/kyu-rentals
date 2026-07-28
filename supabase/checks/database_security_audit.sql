@@ -6,7 +6,7 @@
 --   paths on privileged functions.
 --
 -- Expected clean result:
---   All four queries return zero rows.
+--   All five queries return zero rows.
 -- ============================================================================
 
 -- 1. Every public base table should have RLS enabled.
@@ -66,4 +66,18 @@ WHERE policy.schemaname = 'public'
   AND NOT (
       policy.roles @> ARRAY['anon']::NAME[]
       AND policy.roles @> ARRAY['authenticated']::NAME[]
+  );
+
+-- 5. PayMongo confirmation functions must release temporary inventory locks.
+SELECT
+    procedure.proname AS function_name,
+    pg_catalog.pg_get_function_identity_arguments(procedure.oid) AS identity_arguments
+FROM pg_catalog.pg_proc AS procedure
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = procedure.pronamespace
+WHERE namespace.nspname = 'public'
+  AND procedure.proname = 'process_paymongo_webhook_atomic'
+  AND (
+      POSITION('delete from public.inventory_locks' IN LOWER(pg_catalog.pg_get_functiondef(procedure.oid))) = 0
+      OR POSITION('session_id' IN LOWER(pg_catalog.pg_get_functiondef(procedure.oid))) = 0
   );
