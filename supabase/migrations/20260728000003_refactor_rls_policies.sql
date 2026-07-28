@@ -279,7 +279,7 @@ CREATE POLICY "Staff view pod photos in tenant"
         public.has_permission('bookings.view', tenant_id)
         OR (
             public.has_permission('logistics.view_assigned', tenant_id)
-            AND proof_of_delivery_id IN (
+            AND pod_id IN (
                 SELECT pod.id FROM public.proof_of_deliveries pod
                 JOIN public.bookings b ON b.id = pod.booking_id
                 WHERE b.assigned_delivery_personnel_id = auth.uid()

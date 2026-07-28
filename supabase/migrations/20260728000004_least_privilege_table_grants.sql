@@ -135,33 +135,33 @@ GRANT ALL ON TABLE public.webhook_inbox, public.paymongo_webhook_logs, public.id
 GRANT INSERT (tenant_id, package_id, serial_number, status, condition_notes) ON TABLE public.inventory_units TO authenticated;
 GRANT INSERT (tenant_id, name, description) ON TABLE public.expense_categories TO authenticated;
 GRANT INSERT (tenant_id, category_id, amount, description, expense_date, receipt_url) ON TABLE public.expenses TO authenticated;
-GRANT INSERT (tenant_id, code, discount_type, discount_value, max_redemptions, expires_at) ON TABLE public.promo_codes TO authenticated;
-GRANT INSERT (tenant_id, promo_code_id, booking_id, customer_id, discount_applied) ON TABLE public.promo_code_redemptions TO authenticated;
-GRANT INSERT (tenant_id, booking_id, status, items_checked, notes) ON TABLE public.delivery_checklists TO authenticated;
-GRANT INSERT (tenant_id, booking_id, status, recipient_name, recipient_signature_url, notes) ON TABLE public.proof_of_deliveries TO authenticated;
-GRANT INSERT (tenant_id, proof_of_delivery_id, photo_url, caption) ON TABLE public.proof_of_delivery_photos TO authenticated;
-GRANT INSERT (tenant_id, booking_id, title, description, severity, status) ON TABLE public.incidents TO authenticated;
-GRANT INSERT (tenant_id, incident_id, photo_url, caption) ON TABLE public.incident_photos TO authenticated;
-GRANT INSERT (tenant_id, booking_id, reason) ON TABLE public.customer_cancellation_requests TO authenticated;
-GRANT INSERT (tenant_id, booking_id, package_id, customer_id, rating, comment) ON TABLE public.reviews TO authenticated;
-GRANT INSERT (tenant_id, inventory_unit_id, maintenance_type, description, cost) ON TABLE public.inventory_maintenance_logs TO authenticated;
+GRANT INSERT (tenant_id, code, discount_type, discount_value, min_booking_amount, max_discount_amount, max_usage_limit, per_customer_limit, start_date, end_date, created_by) ON TABLE public.promo_codes TO authenticated;
+GRANT INSERT (tenant_id, promo_code_id, booking_id, customer_id, discount_applied_amount) ON TABLE public.promo_code_redemptions TO authenticated;
+GRANT INSERT (tenant_id, booking_id, checklist_type, microphones_ok, speakers_ok, display_screen_ok, cables_remote_ok, notes, inspected_by) ON TABLE public.delivery_checklists TO authenticated;
+GRANT INSERT (tenant_id, booking_id, customer_signature_url, signed_at, signer_name, signer_contact, device_type, signature_version, notes, delivered_by) ON TABLE public.proof_of_deliveries TO authenticated;
+GRANT INSERT (tenant_id, pod_id, photo_url, photo_type, caption, uploaded_by) ON TABLE public.proof_of_delivery_photos TO authenticated;
+GRANT INSERT (tenant_id, booking_id, unit_id, severity, incident_type, description, estimated_cost, status, reported_by) ON TABLE public.incidents TO authenticated;
+GRANT INSERT (tenant_id, incident_id, photo_url, caption, uploaded_by) ON TABLE public.incident_photos TO authenticated;
+GRANT INSERT (tenant_id, booking_id, customer_id, previous_status, new_status, reason) ON TABLE public.customer_cancellation_requests TO authenticated;
+GRANT INSERT (tenant_id, booking_id, customer_id, rating, comment) ON TABLE public.reviews TO authenticated;
+GRANT INSERT (tenant_id, unit_id, previous_status, new_status, reason, notes, performed_by) ON TABLE public.inventory_maintenance_logs TO authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 7. AUTHENTICATED ROLE COLUMN-LEVEL UPDATE GRANTS (EXCLUDING updated_at)
 -- ----------------------------------------------------------------------------
 
-GRANT UPDATE (full_name, avatar_url, phone_number) ON TABLE public.profiles TO authenticated;
-GRANT UPDATE (status, delivery_address, delivery_notes, event_date, start_time, end_time, assigned_unit_id, assigned_delivery_personnel_id, vehicle_info) ON TABLE public.bookings TO authenticated;
-GRANT UPDATE (status, condition_notes, last_inspected_at) ON TABLE public.inventory_units TO authenticated;
-GRANT UPDATE (name, description) ON TABLE public.expense_categories TO authenticated;
-GRANT UPDATE (category_id, amount, description, expense_date, receipt_url) ON TABLE public.expenses TO authenticated;
-GRANT UPDATE (code, discount_type, discount_value, max_redemptions, expires_at) ON TABLE public.promo_codes TO authenticated;
-GRANT UPDATE (status, items_checked, notes) ON TABLE public.delivery_checklists TO authenticated;
-GRANT UPDATE (status, recipient_name, recipient_signature_url, notes) ON TABLE public.proof_of_deliveries TO authenticated;
-GRANT UPDATE (photo_url, caption) ON TABLE public.proof_of_delivery_photos TO authenticated;
-GRANT UPDATE (title, description, severity, status, resolved_at) ON TABLE public.incidents TO authenticated;
+GRANT UPDATE (full_name, avatar_url, phone) ON TABLE public.profiles TO authenticated;
+GRANT UPDATE (status, delivery_address, special_instructions, event_date, start_time, duration_hours, event_end_time, assigned_unit_id, assigned_delivery_personnel_id, vehicle_info) ON TABLE public.bookings TO authenticated;
+GRANT UPDATE (status, condition_notes) ON TABLE public.inventory_units TO authenticated;
+GRANT UPDATE (name, code, description, is_active) ON TABLE public.expense_categories TO authenticated;
+GRANT UPDATE (category_id, amount, expense_date, vendor, description, payment_method, receipt_url, notes) ON TABLE public.expenses TO authenticated;
+GRANT UPDATE (code, discount_type, discount_value, min_booking_amount, max_discount_amount, max_usage_limit, per_customer_limit, start_date, end_date, is_active) ON TABLE public.promo_codes TO authenticated;
+GRANT UPDATE (checklist_type, microphones_ok, speakers_ok, display_screen_ok, cables_remote_ok, notes) ON TABLE public.delivery_checklists TO authenticated;
+GRANT UPDATE (customer_signature_url, signed_at, signer_name, signer_contact, device_type, signature_version, notes) ON TABLE public.proof_of_deliveries TO authenticated;
+GRANT UPDATE (photo_url, photo_type, caption) ON TABLE public.proof_of_delivery_photos TO authenticated;
+GRANT UPDATE (unit_id, severity, incident_type, description, estimated_cost, status) ON TABLE public.incidents TO authenticated;
 GRANT UPDATE (photo_url, caption) ON TABLE public.incident_photos TO authenticated;
-GRANT UPDATE (company_name, company_phone, company_email, rental_terms, business_hours, deposit_percentage) ON TABLE public.settings TO authenticated;
+GRANT UPDATE (value) ON TABLE public.settings TO authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 8. REFINED RLS INSERT POLICIES (TENANT & OWNERSHIP WITH CHECK ASSERTIONS)
@@ -256,7 +256,7 @@ CREATE POLICY "Drivers insert pod photos for assigned pod"
         AND EXISTS (
             SELECT 1 FROM public.proof_of_deliveries pod
             JOIN public.bookings b ON b.id = pod.booking_id AND b.tenant_id = pod.tenant_id
-            WHERE pod.id = proof_of_delivery_id
+            WHERE pod.id = pod_id
               AND pod.tenant_id = proof_of_delivery_photos.tenant_id
               AND (
                   public.has_permission('bookings.manage', pod.tenant_id)
@@ -330,14 +330,14 @@ DROP POLICY IF EXISTS "Customers insert own completed booking reviews" ON public
 CREATE POLICY "Customers insert own completed booking reviews"
     ON public.reviews FOR INSERT TO authenticated
     WITH CHECK (
-        customer_id = auth.uid()
-        AND is_approved = FALSE
+        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid() AND is_active = TRUE AND is_deleted = FALSE)
+        AND customer_id = auth.uid()
+        AND is_published = FALSE
         AND EXISTS (
             SELECT 1 FROM public.bookings b
             WHERE b.id = booking_id
               AND b.customer_id = auth.uid()
               AND b.tenant_id = reviews.tenant_id
-              AND b.package_id = reviews.package_id
               AND b.status = 'COMPLETED'
         )
     );
@@ -351,7 +351,7 @@ CREATE POLICY "Staff insert maintenance logs for tenant inventory"
         AND public.has_permission('inventory.manage', tenant_id)
         AND EXISTS (
             SELECT 1 FROM public.inventory_units u
-            WHERE u.id = inventory_unit_id
+            WHERE u.id = unit_id
               AND u.tenant_id = inventory_maintenance_logs.tenant_id
               AND u.is_deleted = FALSE
         )
@@ -371,28 +371,40 @@ GRANT EXECUTE ON FUNCTION
     public.can_view_financials(UUID),
     public.can_manage_settings(UUID),
     public.is_admin_staff(UUID),
-    public.create_booking_atomic(UUID, UUID, UUID, DATE, TIME WITHOUT TIME ZONE, INTEGER, TEXT, TEXT, TEXT),
-    public.record_admin_payment_atomic(UUID, UUID, NUMERIC, TEXT, TEXT, TEXT, UUID),
-    public.assign_inventory_unit_admin(UUID, UUID, UUID, UUID),
+    public.is_admin_staff_for_tenant(UUID, UUID),
+    public.generate_public_id(TEXT, TEXT),
+    public.log_settings_history(),
+    public.create_booking_atomic(UUID, UUID, TEXT, TEXT, TEXT, UUID, DATE, TIME WITHOUT TIME ZONE, INTEGER, TIMESTAMP WITH TIME ZONE, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, NUMERIC, NUMERIC, NUMERIC, NUMERIC, JSONB, TIMESTAMP WITH TIME ZONE, TEXT),
+    public.create_booking_atomic(UUID, UUID, UUID, DATE, TIME WITHOUT TIME ZONE, INTEGER, TEXT, TEXT, JSONB, TEXT),
+    public.record_admin_payment_atomic(UUID, UUID, TEXT, TEXT, NUMERIC, TEXT, UUID, TEXT),
+    public.assign_inventory_unit_atomic(UUID, UUID, UUID),
     public.assign_delivery_personnel_admin(UUID, UUID, TEXT, UUID, TEXT, TEXT, UUID),
-    public.get_admin_package_utilization_admin(UUID)
+    public.transition_booking_status_admin(UUID, UUID, TEXT, TEXT, UUID, TEXT),
+    public.update_inventory_unit_status_admin(UUID, UUID, TEXT, TEXT, UUID, TEXT, TEXT),
+    public.create_expense_admin(UUID, UUID, NUMERIC, DATE, TEXT, TEXT, TEXT, TEXT, TEXT),
+    public.soft_delete_expense_admin(UUID, UUID, TEXT),
+    public.submit_proof_of_delivery_admin(UUID, UUID, TEXT, TEXT, TEXT, TEXT),
+    public.report_incident_admin(UUID, UUID, UUID, TEXT, TEXT, TEXT, NUMERIC),
+    public.request_booking_cancellation_customer(UUID, UUID, TEXT, TEXT, UUID),
+    public.submit_customer_review(UUID, UUID, UUID, INTEGER, TEXT),
+    public.get_admin_package_utilization_admin(UUID),
+    public.get_admin_financial_report_admin(UUID),
+    public.get_admin_operational_funnel_admin(UUID),
+    public.get_admin_net_profit_summary_admin(UUID, DATE, DATE),
+    public.get_admin_pnl_report_admin(UUID, INTEGER)
 TO authenticated, service_role;
 
 -- Internal / Webhook-only functions: service_role ONLY
 REVOKE EXECUTE ON FUNCTION
-    public.process_paymongo_webhook_atomic(TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT, JSONB),
-    public.generate_public_id(TEXT, TEXT),
-    public.log_settings_history(),
-    public.log_audit_event_atomic(UUID, TEXT, TEXT, TEXT, UUID, TEXT, JSONB),
-    public.is_admin_staff_for_tenant(UUID, UUID)
+    public.process_paymongo_webhook_atomic(TEXT, TEXT, UUID, TEXT, NUMERIC, TEXT, JSONB),
+    public.process_paymongo_webhook_atomic(UUID, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TIMESTAMP WITH TIME ZONE, JSONB),
+    public.log_audit_event(UUID, TEXT, TEXT, TEXT, UUID, TEXT, UUID, TEXT, TEXT, JSONB)
 FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION
-    public.process_paymongo_webhook_atomic(TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT, JSONB),
-    public.generate_public_id(TEXT, TEXT),
-    public.log_settings_history(),
-    public.log_audit_event_atomic(UUID, TEXT, TEXT, TEXT, UUID, TEXT, JSONB),
-    public.is_admin_staff_for_tenant(UUID, UUID)
+    public.process_paymongo_webhook_atomic(TEXT, TEXT, UUID, TEXT, NUMERIC, TEXT, JSONB),
+    public.process_paymongo_webhook_atomic(UUID, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TIMESTAMP WITH TIME ZONE, JSONB),
+    public.log_audit_event(UUID, TEXT, TEXT, TEXT, UUID, TEXT, UUID, TEXT, TEXT, JSONB)
 TO service_role;
 
 -- ----------------------------------------------------------------------------
