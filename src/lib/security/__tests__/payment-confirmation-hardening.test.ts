@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260730090000_harden_payment_confirmation_pipeline.sql",
+    "supabase/migrations/20260729182329_harden_payment_confirmation_pipeline.sql",
   ),
   "utf8",
 );
