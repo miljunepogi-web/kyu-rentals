@@ -10,6 +10,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const publicGrantMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260729185936_grant_public_package_inclusions.sql",
+  ),
+  "utf8",
+);
 const catalogQuery = readFileSync(
   resolve(process.cwd(), "src/queries/packages.queries.ts"),
   "utf8",
@@ -44,6 +51,13 @@ describe("admin package management hardening", () => {
     expect(catalogQuery).toContain('.from("packages")');
     expect(catalogQuery).toContain('cache: "no-store"');
     expect(catalogQuery).not.toContain("MOCK_PACKAGES");
+  });
+
+  test("exposes only structured inclusions to anonymous catalog readers", () => {
+    expect(publicGrantMigration).toContain(
+      "GRANT SELECT (inclusions) ON TABLE public.packages TO anon",
+    );
+    expect(publicGrantMigration).not.toContain("GRANT SELECT ON TABLE");
   });
 
   test("freezes the full package version and terms in new booking snapshots", () => {
