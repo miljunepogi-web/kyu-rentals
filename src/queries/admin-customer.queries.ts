@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { getBookingPackageSnapshot } from "@/queries/booking-snapshot";
 
 export interface AdminCustomerListItem {
   id: string;
@@ -54,13 +55,14 @@ export async function getAdminCustomerList(): Promise<AdminCustomerListItem[]> {
     grand_total: number;
     event_date: string;
     status: string;
+    snapshot: unknown;
     packages: { name: string } | null;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bookings } = await (supabase as any)
     .from("bookings")
-    .select("id, customer_id, grand_total, event_date, status, packages!package_id (name)")
+    .select("id, customer_id, grand_total, event_date, status, snapshot, packages!package_id (name)")
     .eq("is_deleted", false) as { data: BookingRow[] | null; error: unknown };
 
   const bookingList = bookings || [];
@@ -91,7 +93,10 @@ export async function getAdminCustomerList(): Promise<AdminCustomerListItem[]> {
       entry.lastBookingDate = b.event_date;
     }
 
-    const pkgName = b.packages?.name || "Karaoke Setup";
+    const pkgName =
+      getBookingPackageSnapshot(b.snapshot).name ||
+      b.packages?.name ||
+      "Karaoke Setup";
     entry.pkgCounts.set(pkgName, (entry.pkgCounts.get(pkgName) || 0) + 1);
 
     customerMap.set(b.customer_id, entry);
@@ -145,13 +150,14 @@ export async function getAdminCustomerDetail(customerId: string): Promise<AdminC
     status: string;
     grand_total: number;
     balance_amount: number;
+    snapshot: unknown;
     packages?: { name?: string | null } | null;
   }
 
   // Fetch customer's bookings
   const { data: customerBookings } = await supabase
     .from("bookings")
-    .select("id, public_id, event_date, status, grand_total, balance_amount, packages!package_id (name)")
+    .select("id, public_id, event_date, status, grand_total, balance_amount, snapshot, packages!package_id (name)")
     .eq("customer_id", customerId)
     .eq("is_deleted", false)
     .order("created_at", { ascending: false });
@@ -159,7 +165,10 @@ export async function getAdminCustomerDetail(customerId: string): Promise<AdminC
   const bookings = ((customerBookings as unknown as RawCustomerBookingRecord[]) || []).map((b) => ({
     id: b.id,
     publicId: b.public_id,
-    packageName: b.packages?.name || "Karaoke Setup",
+    packageName:
+      getBookingPackageSnapshot(b.snapshot).name ||
+      b.packages?.name ||
+      "Karaoke Setup",
     eventDate: b.event_date,
     status: b.status,
     grandTotal: Number(b.grand_total) || 0,

@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
-import { getBookingCustomerContact } from "@/queries/booking-snapshot";
+import {
+  getBookingCustomerContact,
+  getBookingPackageSnapshot,
+} from "@/queries/booking-snapshot";
 import { throwQueryError } from "@/queries/query-error";
 
 export interface AdminCalendarEvent {
@@ -79,6 +82,7 @@ export async function getAdminCalendarEvents(
 
   const events: AdminCalendarEvent[] = (rawBookings as unknown as RawBookingRecord[]).map((b) => {
     const customer = getBookingCustomerContact(b.snapshot);
+    const frozenPackage = getBookingPackageSnapshot(b.snapshot);
     const isPickup = ["COMPLETED", "RETRIEVED", "PICKUP_SCHEDULED", "OUT_FOR_PICKUP", "PICKED_UP"].includes(b.status);
     const isActive = ["RENTAL_ACTIVE", "DELIVERED"].includes(b.status);
     const eventType = isPickup ? "PICKUP" : isActive ? "ACTIVE_RENTAL" : "DELIVERY";
@@ -88,7 +92,7 @@ export async function getAdminCalendarEvents(
       publicId: b.public_id,
       customerName: customer.fullName || b.profiles?.full_name || "Customer",
       customerPhone: customer.phone || b.profiles?.phone || "N/A",
-      packageName: b.packages?.name || "Karaoke Package",
+      packageName: frozenPackage.name || b.packages?.name || "Karaoke Package",
       eventDate: b.event_date,
       startTime: b.start_time || "09:00",
       durationHours: b.duration_hours || 4,

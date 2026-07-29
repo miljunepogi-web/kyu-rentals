@@ -133,6 +133,7 @@ export interface Database {
           price_full_day: number;
           featured_image_url: string | null;
           gallery_urls: string[];
+          inclusions: Json;
           max_guests: string | null;
           sound_rating: string | null;
           is_featured: boolean;

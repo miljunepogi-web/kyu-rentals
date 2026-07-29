@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
-import { getBookingCustomerContact } from "@/queries/booking-snapshot";
+import {
+  getBookingCustomerContact,
+  getBookingPackageSnapshot,
+} from "@/queries/booking-snapshot";
 import { calculateInventoryAvailability } from "@/queries/inventory-metrics";
 import { throwQueryError } from "@/queries/query-error";
 
@@ -184,11 +187,12 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   // Today's schedule timeline items
   const scheduleTimeline: ScheduleItem[] = (todayBookings as unknown as RawTodayBookingRecord[]).map((b) => {
     const customer = getBookingCustomerContact(b.snapshot);
+    const frozenPackage = getBookingPackageSnapshot(b.snapshot);
     return {
       id: b.id,
       publicId: b.public_id,
       customerName: customer.fullName || b.profiles?.full_name || "Customer",
-      packageName: b.packages?.name || "Karaoke Setup",
+      packageName: frozenPackage.name || b.packages?.name || "Karaoke Setup",
       eventDate: b.event_date,
       startTime: b.start_time || "09:00 AM",
       status: b.status,
@@ -295,12 +299,13 @@ export async function getAdminBookings(
 
   return (data as unknown as RawAdminBookingRow[]).map((b) => {
     const customer = getBookingCustomerContact(b.snapshot);
+    const frozenPackage = getBookingPackageSnapshot(b.snapshot);
     return {
       id: b.id,
       publicId: b.public_id,
       customerName: customer.fullName || b.profiles?.full_name || "Guest Customer",
       customerPhone: customer.phone || b.profiles?.phone || "N/A",
-      packageName: b.packages?.name || "Karaoke Package",
+      packageName: frozenPackage.name || b.packages?.name || "Karaoke Package",
       eventDate: b.event_date,
       status: b.status,
       grandTotal: Number(b.grand_total) || 0,
@@ -387,6 +392,7 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
   if (lockError) throwQueryError("admin.bookings.detail.lock", lockError);
 
   const customer = getBookingCustomerContact(b.snapshot);
+  const frozenPackage = getBookingPackageSnapshot(b.snapshot);
 
   return {
     id: b.id,
@@ -396,8 +402,8 @@ export async function getAdminBookingDetail(bookingId: string): Promise<AdminBoo
     customerName: customer.fullName || b.profiles?.full_name || "Guest Customer",
     customerEmail: customer.email || b.profiles?.email || "customer@example.com",
     customerPhone: customer.phone || b.profiles?.phone || "N/A",
-    packageName: b.packages?.name || "Karaoke Package",
-    packageSlug: b.packages?.slug || "kyu-party-pro",
+    packageName: frozenPackage.name || b.packages?.name || "Karaoke Package",
+    packageSlug: frozenPackage.slug || b.packages?.slug || "kyu-party-pro",
     eventDate: b.event_date,
     startTime: b.start_time,
     durationHours: b.duration_hours,
