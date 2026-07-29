@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   publicRpc: vi.fn(),
   adminFrom: vi.fn(),
   adminRpc: vi.fn(),
-  checkAvailability: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -21,10 +20,6 @@ vi.mock("@/lib/supabase/admin", () => ({
     from: mocks.adminFrom,
     rpc: mocks.adminRpc,
   })),
-}));
-
-vi.mock("@/lib/availability/availability-engine", () => ({
-  checkPackageAvailability: mocks.checkAvailability,
 }));
 
 import { createBookingAction } from "../booking.actions";
@@ -96,7 +91,6 @@ describe("createBookingAction", () => {
       throw new Error(`Admin client unexpectedly accessed ${table}`);
     });
 
-    mocks.checkAvailability.mockResolvedValue({ available: true });
     mocks.adminRpc.mockResolvedValue({
       data: {
         booking_id: "booking-1",
@@ -208,9 +202,8 @@ describe("createBookingAction", () => {
     mocks.adminRpc.mockResolvedValue({
       data: null,
       error: {
-        code: "23505",
-        message:
-          'duplicate key value violates unique constraint "bookings_one_active_customer_package_date"',
+        code: "P0001",
+        message: "CUSTOMER_ALREADY_HAS_ACTIVE_BOOKING",
       },
     });
 
@@ -228,6 +221,37 @@ describe("createBookingAction", () => {
         addons: [],
       },
       "repeat-customer-booking-key",
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.code).toBe("CONFLICT");
+    expect(result.error).toContain("already have an active booking");
+  });
+
+  test("maps the unique-index race fallback to the repeat-customer conflict", async () => {
+    mocks.adminRpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "bookings_one_active_customer_package_date"',
+      },
+    });
+
+    const result = await createBookingAction(
+      {
+        packageSlug: "kyu-mini",
+        eventDate: "2026-08-15",
+        startTime: "14:00",
+        durationHours: 4,
+        deliveryAddress: "123 QA Street, Quezon City",
+        deliveryZone: "METRO_MANILA",
+        customerFullName: "KYU Repeat Race",
+        customerEmail: "repeat-race@example.com",
+        customerPhone: "09171234567",
+        addons: [],
+      },
+      "repeat-customer-race-key",
     );
 
     expect(result.success).toBe(false);
