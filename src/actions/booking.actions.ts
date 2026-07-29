@@ -329,6 +329,17 @@ export async function createBookingAction(
         };
       }
 
+      if (
+        rpcErr?.code === "23505" &&
+        rpcErr?.message?.includes("bookings_one_active_customer_package_date")
+      ) {
+        return {
+          success: false,
+          error: `You already have an active booking for this package on ${payload.eventDate}. Please open your dashboard instead of creating another reservation.`,
+          code: ErrorCode.CONFLICT,
+        };
+      }
+
       return {
         success: false,
         error: "Atomic transaction failed or returned an invalid payload structure",

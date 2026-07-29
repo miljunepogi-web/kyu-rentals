@@ -203,4 +203,35 @@ describe("createBookingAction", () => {
     expect(result.error).toContain("fully booked");
     expect(mocks.adminFrom).toHaveBeenCalledWith("idempotency_keys");
   });
+
+  test("returns a conflict for a repeat customer's duplicate active booking", async () => {
+    mocks.adminRpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "bookings_one_active_customer_package_date"',
+      },
+    });
+
+    const result = await createBookingAction(
+      {
+        packageSlug: "kyu-mini",
+        eventDate: "2026-08-15",
+        startTime: "14:00",
+        durationHours: 4,
+        deliveryAddress: "123 QA Street, Quezon City",
+        deliveryZone: "METRO_MANILA",
+        customerFullName: "KYU Repeat Customer",
+        customerEmail: "repeat@example.com",
+        customerPhone: "09171234567",
+        addons: [],
+      },
+      "repeat-customer-booking-key",
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.code).toBe("CONFLICT");
+    expect(result.error).toContain("already have an active booking");
+  });
 });
