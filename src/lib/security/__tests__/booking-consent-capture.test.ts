@@ -7,7 +7,7 @@ const migration = fs.readFileSync(
     process.cwd(),
     "supabase",
     "migrations",
-    "20260729172541_capture_booking_terms_consent.sql",
+    "20260729173546_capture_booking_terms_consent.sql",
   ),
   "utf8",
 );
