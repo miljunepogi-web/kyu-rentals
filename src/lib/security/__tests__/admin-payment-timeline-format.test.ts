@@ -7,7 +7,7 @@ const migration = readFileSync(
     process.cwd(),
     "supabase",
     "migrations",
-    "20260728142039_format_admin_payment_timeline_amounts.sql",
+    "20260728142351_format_admin_payment_timeline_amounts.sql",
   ),
   "utf8",
 ).toLowerCase();
