@@ -72,6 +72,7 @@ export async function addBookingInternalNoteAction(
       event_description: `[Note by ${operatorName}]: ${payload.noteText.trim()}`,
       performed_by_role: "admin",
       is_system_event: false,
+      visibility: "INTERNAL",
     });
 
     if (insertErr) {

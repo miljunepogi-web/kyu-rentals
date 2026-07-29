@@ -43,6 +43,16 @@ describe("Milestone 3.5 - PayMongo Webhook Processor", () => {
     expect(isValid).toBe(true);
   });
 
+  test("selects the live signature when both test and live fields are present", () => {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const payloadToSign = `${timestamp}.${body}`;
+    const signature = crypto.createHmac("sha256", secret).update(payloadToSign).digest("hex");
+    const signatureHeader = `t=${timestamp},te=,li=${signature}`;
+
+    expect(verifyPayMongoSignature(body, signatureHeader, secret, true)).toBe(true);
+    expect(verifyPayMongoSignature(body, signatureHeader, secret, false)).toBe(false);
+  });
+
   test("rejects invalid webhook signature", () => {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const signatureHeader = `t=${timestamp},te=invalid_signature_hex`;

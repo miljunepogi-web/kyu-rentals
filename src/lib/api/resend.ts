@@ -9,6 +9,7 @@ export interface EmailPayload {
   subject: string;
   html: string;
   from?: string;
+  idempotencyKey?: string;
   attachments?: Array<{
     filename: string;
     content: string;
@@ -47,6 +48,9 @@ export async function sendEmailNotification(payload: EmailPayload): Promise<Emai
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(payload.idempotencyKey
+          ? { "Idempotency-Key": payload.idempotencyKey }
+          : {}),
       },
       body: JSON.stringify({
         from: fromAddress,

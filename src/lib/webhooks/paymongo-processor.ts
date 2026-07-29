@@ -51,7 +51,8 @@ const REFUND_EVENTS = [
 export function verifyPayMongoSignature(
   rawBody: string,
   signatureHeader: string | null,
-  webhookSecret: string
+  webhookSecret: string,
+  expectsLiveMode = false,
 ): boolean {
   if (!signatureHeader || !webhookSecret || webhookSecret === "whsec_placeholder") {
     return false;
@@ -60,7 +61,8 @@ export function verifyPayMongoSignature(
   try {
     const parts = signatureHeader.split(",");
     const tPart = parts.find((p) => p.startsWith("t="));
-    const sigPart = parts.find((p) => p.startsWith("li=") || p.startsWith("te="));
+    const signaturePrefix = expectsLiveMode ? "li=" : "te=";
+    const sigPart = parts.find((p) => p.startsWith(signaturePrefix));
 
     if (!tPart || !sigPart) {
       return false;
@@ -103,6 +105,8 @@ export async function processPayMongoWebhookEvent(
 ): Promise<Result<{ eventId: string; bookingId?: string; duplicate?: boolean }>> {
   const isProduction = process.env.NODE_ENV === "production";
   const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET;
+  const paymongoSecretKey = process.env.PAYMONGO_SECRET_KEY || "";
+  const expectsLiveMode = paymongoSecretKey.startsWith("sk_live_");
 
   const isPlaceholderSecret =
     !webhookSecret ||
@@ -123,7 +127,12 @@ export async function processPayMongoWebhookEvent(
   const activeSecret = webhookSecret || "whsec_mock_secret_kyu_rentals";
 
   if (isProduction || !isPlaceholderSecret) {
-    const isValid = verifyPayMongoSignature(rawBody, signatureHeader, activeSecret);
+    const isValid = verifyPayMongoSignature(
+      rawBody,
+      signatureHeader,
+      activeSecret,
+      expectsLiveMode,
+    );
     if (!isValid) {
       logger.warn("PayMongo Webhook signature verification failed", { signatureHeader });
       return {
@@ -159,9 +168,6 @@ export async function processPayMongoWebhookEvent(
   }
 
   // 3. Environment & Livemode Validation (Code Review Finding #3)
-  const paymongoSecretKey = process.env.PAYMONGO_SECRET_KEY || "";
-  const expectsLiveMode = paymongoSecretKey.startsWith("sk_live_");
-
   if (isProduction && isLiveMode !== expectsLiveMode) {
     logger.warn("PayMongo webhook livemode does not match configured key mode", {
       eventId,
@@ -335,8 +341,8 @@ export async function processPayMongoWebhookEvent(
   const paidAmountCentavos = innerAttributes.amount;
   const expectedDepositCentavos = Math.round(booking.deposit_amount * 100);
 
-  if (paidAmountCentavos < expectedDepositCentavos) {
-    logger.error("PayMongo webhook financial mismatch: Paid amount less than deposit", {
+  if (paidAmountCentavos !== expectedDepositCentavos) {
+    logger.error("PayMongo webhook financial mismatch: Paid amount differs from deposit", {
       eventId,
       bookingId,
       paidAmountCentavos,
@@ -370,15 +376,18 @@ export async function processPayMongoWebhookEvent(
     };
   }
 
-  if (rpcResult?.duplicate || rpcResult?.status === "duplicate" || rpcResult?.status === "already_confirmed") {
-    logger.info("PayMongo webhook duplicate delivery acknowledged idempotently", { eventId, bookingId });
-    return {
-      success: true,
-      data: { eventId, bookingId, duplicate: true },
-    };
-  }
+  const isDuplicate =
+    rpcResult?.duplicate ||
+    rpcResult?.status === "duplicate" ||
+    rpcResult?.status === "already_confirmed";
+  const requiresManualReview = rpcResult?.status === "manual_review";
 
-  if (rpcResult?.success !== true && rpcResult?.status !== "success") {
+  if (
+    rpcResult?.success !== true &&
+    rpcResult?.status !== "success" &&
+    !isDuplicate &&
+    !requiresManualReview
+  ) {
     logger.error("Atomic RPC transaction process_paymongo_webhook_atomic returned malformed payload", {
       rpcResult,
     });
@@ -389,6 +398,25 @@ export async function processPayMongoWebhookEvent(
     };
   }
 
+  if (requiresManualReview) {
+    logger.error("Late PayMongo payment requires manual capacity review", {
+      eventId,
+      bookingId,
+      reason: rpcResult?.reason,
+    });
+    return {
+      success: true,
+      data: { eventId, bookingId },
+    };
+  }
+
+  if (isDuplicate) {
+    logger.info("PayMongo webhook duplicate delivery will retry any pending confirmation", {
+      eventId,
+      bookingId,
+    });
+  }
+
   logger.info("PayMongo webhook atomically processed: Booking CONFIRMED", {
     eventId,
     bookingId,
@@ -397,10 +425,25 @@ export async function processPayMongoWebhookEvent(
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: outboxEntry } = await (supabase.from("booking_notification_outbox") as any)
+      .select("id, status, attempts")
+      .eq("booking_id", booking.id)
+      .eq("notification_type", "BOOKING_CONFIRMED")
+      .maybeSingle();
+
+    if (outboxEntry?.status === "SENT") {
+      return {
+        success: true,
+        data: { eventId, bookingId, duplicate: Boolean(isDuplicate) },
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: confirmedBooking } = await (supabase.from("bookings") as any)
       .select("id, public_id, event_date, start_time, duration_hours, delivery_address, delivery_zone, grand_total, deposit_amount, balance_amount, snapshot")
       .eq("id", booking.id)
       .eq("tenant_id", booking.tenant_id)
+      .eq("status", "CONFIRMED")
       .eq("is_deleted", false)
       .maybeSingle();
 
@@ -438,13 +481,52 @@ export async function processPayMongoWebhookEvent(
         }
       );
 
-      await sendBookingConfirmationEmail(confirmationData);
+      const notificationResult = await sendBookingConfirmationEmail(confirmationData);
+      if (!notificationResult.success) {
+        if (outboxEntry?.id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from("booking_notification_outbox") as any)
+            .update({
+              status: "FAILED",
+              attempts: Number(outboxEntry.attempts || 0) + 1,
+              last_error: notificationResult.error || "Unknown notification error",
+              next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", outboxEntry.id);
+        }
+        return {
+          success: false,
+          error: "Payment was recorded, but booking confirmation delivery is still pending",
+          code: ErrorCode.INTERNAL_ERROR,
+        };
+      }
+
+      if (outboxEntry?.id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("booking_notification_outbox") as any)
+          .update({
+            status: "SENT",
+            attempts: Number(outboxEntry.attempts || 0) + 1,
+            last_error: null,
+            provider_message_id: notificationResult.emailId || null,
+            next_retry_at: null,
+            sent_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", outboxEntry.id);
+      }
     } else {
       logger.warn("Skipped booking confirmation email due to missing booking or payment data", {
         bookingId: booking.id,
         hasBooking: Boolean(confirmedBooking),
         hasPayment: Boolean(paidPayment),
       });
+      return {
+        success: false,
+        error: "Payment was recorded, but confirmation data is not ready for delivery",
+        code: ErrorCode.INTERNAL_ERROR,
+      };
     }
   } catch (notificationError: unknown) {
     const err = notificationError as Error;
@@ -453,10 +535,15 @@ export async function processPayMongoWebhookEvent(
       bookingId,
       error: err.message,
     });
+    return {
+      success: false,
+      error: "Payment was recorded, but booking confirmation delivery is still pending",
+      code: ErrorCode.INTERNAL_ERROR,
+    };
   }
 
   return {
     success: true,
-    data: { eventId, bookingId },
+    data: { eventId, bookingId, duplicate: Boolean(isDuplicate) },
   };
 }
