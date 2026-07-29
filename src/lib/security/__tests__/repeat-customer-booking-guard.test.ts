@@ -12,6 +12,16 @@ const migration = fs.readFileSync(
   "utf8",
 );
 
+const hardeningMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "supabase",
+    "migrations",
+    "20260729171527_harden_repeat_customer_booking_flow.sql",
+  ),
+  "utf8",
+);
+
 describe("repeat customer booking guard", () => {
   test("uniquely identifies an active reservation by customer, package, and date", () => {
     expect(migration).toContain("CREATE UNIQUE INDEX bookings_one_active_customer_package_date");
@@ -33,4 +43,23 @@ describe("repeat customer booking guard", () => {
       expect(migration).not.toContain(`'${status}'`);
     },
   );
+});
+
+describe("repeat customer retry hardening", () => {
+  test("covers payment processing as an active reservation", () => {
+    expect(hardeningMigration).toContain("'PAYMENT_PROCESSING'");
+  });
+
+  test("expires stale unpaid reservations before checking for duplicates or capacity", () => {
+    const expiryPosition = hardeningMigration.indexOf("SET status = 'EXPIRED'");
+    const duplicatePosition = hardeningMigration.indexOf(
+      "CUSTOMER_ALREADY_HAS_ACTIVE_BOOKING",
+    );
+    const capacityPosition = hardeningMigration.indexOf("PACKAGE_FULLY_BOOKED");
+
+    expect(expiryPosition).toBeGreaterThan(-1);
+    expect(duplicatePosition).toBeGreaterThan(expiryPosition);
+    expect(capacityPosition).toBeGreaterThan(duplicatePosition);
+    expect(hardeningMigration).toContain("inventory_lock.expires_at > NOW()");
+  });
 });

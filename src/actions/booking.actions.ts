@@ -4,7 +4,6 @@ import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateBookingPrice } from "@/lib/pricing/pricing-engine";
-import { checkPackageAvailability } from "@/lib/availability/availability-engine";
 import { Result } from "@/types";
 import { ErrorCode } from "@/utils/errors";
 import { logger } from "@/utils/logger";
@@ -194,24 +193,7 @@ export async function createBookingAction(
     const packageId = pkg.id;
     const packageName = pkg.name;
 
-    // E. Fast UX pre-check. The RPC repeats this authoritatively under a lock.
-    const availResult = await checkPackageAvailability({
-      supabase: adminSupabase,
-      tenantId,
-      packageId,
-      eventDate: payload.eventDate,
-      durationHours: payload.durationHours,
-    });
-
-    if (!availResult.available) {
-      return {
-        success: false,
-        error: `Selected package is fully booked for date ${payload.eventDate}. Please choose another date.`,
-        code: ErrorCode.CONFLICT,
-      };
-    }
-
-    // F. Pure Server-Side Pricing Calculation
+    // E. Pure Server-Side Pricing Calculation
     const pricing = calculateBookingPrice({
       basePrice4Hours: pkg.price_4_hours,
       basePrice8Hours: pkg.price_8_hours,
@@ -224,13 +206,13 @@ export async function createBookingAction(
       isHoliday: false,
     });
 
-    // G. Calculate Schedule Boundaries & Soft Lock Expiry
+    // F. Calculate Schedule Boundaries & Soft Lock Expiry
     const [startHour, startMin] = payload.startTime.split(":").map(Number);
     const startDt = new Date(`${payload.eventDate}T${String(startHour).padStart(2, "0")}:${String(startMin || 0).padStart(2, "0")}:00`);
     const eventEndTime = new Date(startDt.getTime() + payload.durationHours * 3600 * 1000).toISOString();
     const lockExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15-Minute Soft Lock TTL
 
-    // H. Freeze Immutable Booking Snapshot
+    // G. Freeze Immutable Booking Snapshot
     const snapshot = {
       snapshotTimestamp: new Date().toISOString(),
       package: {
@@ -251,7 +233,7 @@ export async function createBookingAction(
       },
     };
 
-    // I. Register the request only after all read-only validation succeeds.
+    // H. Register the request only after all read-only validation succeeds.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: keyInsertErr } = await (adminSupabase.from("idempotency_keys") as any).insert({
       tenant_id: tenantId,
@@ -272,7 +254,7 @@ export async function createBookingAction(
 
     idempotencyRegistered = true;
 
-    // J. TRUE ATOMIC TRANSACTION via PostgreSQL RPC `create_booking_atomic`
+    // I. TRUE ATOMIC TRANSACTION via PostgreSQL RPC `create_booking_atomic`
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rpcResult, error: rpcErr } = await (adminSupabase.rpc as any)("create_booking_atomic", {
       p_tenant_id: tenantId,
@@ -329,6 +311,14 @@ export async function createBookingAction(
         };
       }
 
+      if (rpcErr?.message?.includes("CUSTOMER_ALREADY_HAS_ACTIVE_BOOKING")) {
+        return {
+          success: false,
+          error: `You already have an active booking for this package on ${payload.eventDate}. Please open your dashboard instead of creating another reservation.`,
+          code: ErrorCode.CONFLICT,
+        };
+      }
+
       if (
         rpcErr?.code === "23505" &&
         rpcErr?.message?.includes("bookings_one_active_customer_package_date")
@@ -359,7 +349,7 @@ export async function createBookingAction(
       balanceAmount: pricing.balanceAmount,
     };
 
-    // K. Update Idempotency Key Status to 'completed' with Response Cache
+    // J. Update Idempotency Key Status to 'completed' with Response Cache
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (adminSupabase.from("idempotency_keys") as any)
       .update({
