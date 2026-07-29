@@ -17,6 +17,13 @@ const publicGrantMigration = readFileSync(
   ),
   "utf8",
 );
+const publicRuntimeGrantMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260729190214_grant_public_package_runtime_columns.sql",
+  ),
+  "utf8",
+);
 const catalogQuery = readFileSync(
   resolve(process.cwd(), "src/queries/packages.queries.ts"),
   "utf8",
@@ -58,6 +65,13 @@ describe("admin package management hardening", () => {
       "GRANT SELECT (inclusions) ON TABLE public.packages TO anon",
     );
     expect(publicGrantMigration).not.toContain("GRANT SELECT ON TABLE");
+  });
+
+  test("grants only runtime version/filter columns required by the anonymous query", () => {
+    expect(publicRuntimeGrantMigration).toContain(
+      "GRANT SELECT (version, is_deleted) ON TABLE public.packages TO anon",
+    );
+    expect(publicRuntimeGrantMigration).not.toContain("GRANT SELECT ON TABLE");
   });
 
   test("freezes the full package version and terms in new booking snapshots", () => {

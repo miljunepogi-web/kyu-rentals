@@ -1,6 +1,8 @@
 import { getPublishedPackages } from "@/queries/packages.queries";
 import { PackageGrid } from "@/components/marketing/PackageGrid";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Karaoke Rental Packages & Pricing",
   description: "Browse our complete lineup of karaoke sound setups for home parties, birthdays, and corporate events.",
