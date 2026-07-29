@@ -225,6 +225,7 @@ export interface Database {
           id: string;
           tenant_id: string;
           package_id: string;
+          event_date: string;
           session_id: string;
           expires_at: string;
           created_at: string;

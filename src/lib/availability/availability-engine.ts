@@ -54,13 +54,14 @@ export async function checkPackageAvailability({
 }: CheckAvailabilityParams): Promise<AvailabilityResult> {
   const nowIso = new Date().toISOString();
 
-  // 1. Fetch Total Deployable Inventory Units (Excludes UNDER_REPAIR, RETIRED, and deleted units)
+  // 1. Count physical units that can serve bookings. IN_USE is included because
+  // capacity is allocated per event date and its active booking is counted below.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { count: deployableCount, error: unitErr } = await (supabase.from("inventory_units") as any)
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
     .eq("package_id", packageId)
-    .eq("status", "READY_TO_DEPLOY")
+    .in("status", ["READY_TO_DEPLOY", "IN_USE"])
     .eq("is_deleted", false);
 
   if (unitErr) {
@@ -93,6 +94,7 @@ export async function checkPackageAvailability({
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
     .eq("package_id", packageId)
+    .eq("event_date", eventDate)
     .gt("expires_at", nowIso);
 
   if (lockErr) {
