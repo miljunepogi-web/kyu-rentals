@@ -86,7 +86,7 @@ describe("PR 3 — Least Privilege Table & Function Grants Specification Tests (
     });
 
     const functionPrivileges: Record<string, string[]> = {
-      "public.create_booking_atomic": ["authenticated", "service_role"],
+      "public.create_booking_atomic": ["service_role"],
       "public.record_admin_payment_atomic": ["authenticated", "service_role"],
       "public.process_paymongo_webhook_atomic": ["service_role"],
       "public.generate_public_id": ["service_role"],
@@ -138,7 +138,7 @@ describe("PR 3 — Least Privilege Table & Function Grants Specification Tests (
 
   test("PR 3 Privilege Assertions: Function Execution Privilege Check", () => {
     const authCreateBooking = db.public.many(`SELECT public.has_function_privilege('authenticated', 'public.create_booking_atomic', 'EXECUTE') AS res;`);
-    expect(Boolean(authCreateBooking[0]?.res)).toBe(true);
+    expect(Boolean(authCreateBooking[0]?.res)).toBe(false);
 
     const anonWebhookRpc = db.public.many(`SELECT public.has_function_privilege('anon', 'public.process_paymongo_webhook_atomic', 'EXECUTE') AS res;`);
     expect(Boolean(anonWebhookRpc[0]?.res)).toBe(false);

@@ -175,4 +175,32 @@ describe("createBookingAction", () => {
     expect(idempotencyCalls).toHaveLength(1);
     expect(mocks.adminRpc).not.toHaveBeenCalled();
   });
+
+  test("returns a conflict and releases idempotency when atomic capacity is exhausted", async () => {
+    mocks.adminRpc.mockResolvedValue({
+      data: null,
+      error: { message: "PACKAGE_FULLY_BOOKED" },
+    });
+
+    const result = await createBookingAction(
+      {
+        packageSlug: "kyu-mini",
+        eventDate: "2026-08-15",
+        startTime: "14:00",
+        durationHours: 4,
+        deliveryAddress: "123 QA Street, Quezon City",
+        deliveryZone: "METRO_MANILA",
+        customerFullName: "KYU Race Test",
+        customerEmail: "race@example.com",
+        customerPhone: "09171234567",
+        addons: [],
+      },
+      "booking-race-key",
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.code).toBe("CONFLICT");
+    expect(result.error).toContain("fully booked");
+    expect(mocks.adminFrom).toHaveBeenCalledWith("idempotency_keys");
+  });
 });

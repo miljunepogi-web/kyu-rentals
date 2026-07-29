@@ -194,7 +194,7 @@ export async function createBookingAction(
     const packageId = pkg.id;
     const packageName = pkg.name;
 
-    // E. Concurrency-Safe Availability Check
+    // E. Fast UX pre-check. The RPC repeats this authoritatively under a lock.
     const availResult = await checkPackageAvailability({
       supabase: adminSupabase,
       tenantId,
@@ -312,6 +312,23 @@ export async function createBookingAction(
         rpcErr,
         rpcResult,
       });
+
+      if (idempotencyRegistered) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (adminSupabase.from("idempotency_keys") as any)
+          .update({ status: "failed" })
+          .eq("tenant_id", tenantId)
+          .eq("key", idempotencyKey);
+      }
+
+      if (rpcErr?.message?.includes("PACKAGE_FULLY_BOOKED")) {
+        return {
+          success: false,
+          error: `Selected package is fully booked for date ${payload.eventDate}. Please choose another date.`,
+          code: ErrorCode.CONFLICT,
+        };
+      }
+
       return {
         success: false,
         error: "Atomic transaction failed or returned an invalid payload structure",
