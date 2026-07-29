@@ -7,7 +7,7 @@ import { updateCustomerProfileAction } from "@/actions/customer.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Phone, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { User, Phone, Mail, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 export default function CustomerProfilePage() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
@@ -69,63 +69,76 @@ export default function CustomerProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="py-20 text-center text-muted-foreground text-sm font-medium">
-        Loading profile details...
+      <div
+        role="status"
+        aria-live="polite"
+        className="py-16 text-center text-muted-foreground text-sm font-medium space-y-3"
+      >
+        <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" aria-hidden="true" />
+        <span>Loading profile details...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto px-4 py-8">
+    <div className="space-y-6 sm:space-y-8 max-w-2xl mx-auto px-4 py-6 sm:py-8">
       <div>
         <span className="text-xs font-bold text-primary uppercase tracking-widest">
           Account Preferences
         </span>
-        <h1 className="font-outfit text-3xl font-extrabold mt-1">My Customer Profile</h1>
+        <h1 className="font-outfit text-2xl sm:text-3xl font-extrabold mt-1">My Customer Profile</h1>
       </div>
 
       {errorMsg && (
-        <div className="flex items-center gap-3 rounded-xl bg-destructive/10 p-4 text-xs font-semibold text-destructive border border-destructive/20">
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex items-center gap-3 rounded-xl bg-destructive/10 p-3.5 sm:p-4 text-xs sm:text-sm font-semibold text-destructive border border-destructive/20"
+        >
           <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-3 rounded-xl bg-green-500/10 p-4 text-xs font-semibold text-green-600 border border-green-500/20">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 rounded-xl bg-green-500/10 p-3.5 sm:p-4 text-xs sm:text-sm font-semibold text-green-600 border border-green-500/20"
+        >
           <CheckCircle2 className="h-4 w-4 shrink-0" /> {successMsg}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="rounded-3xl border bg-card p-6 md:p-8 space-y-6 shadow-xs">
-        <div>
-          <Label htmlFor="profile-public-id" className="text-xs font-bold text-muted-foreground">
+      <form onSubmit={handleSubmit} className="rounded-2xl sm:rounded-3xl border bg-card p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 shadow-xs">
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-public-id" className="text-xs sm:text-sm font-bold text-muted-foreground">
             Customer Reference ID
           </Label>
           <Input
             id="profile-public-id"
             value={profile?.publicId || "USR-000000"}
             disabled
-            className="mt-1 bg-secondary/50 font-mono text-xs font-bold"
+            className="h-11 sm:h-12 min-h-[44px] bg-secondary/50 font-mono text-xs sm:text-sm font-bold"
           />
         </div>
 
-        <div>
-          <Label htmlFor="profile-email" className="text-xs font-bold flex items-center gap-1.5">
-            <Mail className="h-3.5 w-3.5 text-primary" /> Email Address
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-email" className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
+            <Mail className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Email Address
           </Label>
           <Input
             id="profile-email"
             value={profile?.email || ""}
             disabled
-            className="mt-1 bg-secondary/50 text-xs font-medium"
+            className="h-11 sm:h-12 min-h-[44px] bg-secondary/50 text-xs sm:text-sm font-medium"
           />
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
             Email address is tied to your login account and cannot be modified here.
           </p>
         </div>
 
-        <div>
-          <Label htmlFor="profile-fullname" className="text-xs font-bold flex items-center gap-1.5">
-            <User className="h-3.5 w-3.5 text-primary" /> Full Name <span className="text-destructive">*</span>
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-fullname" className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Full Name <span className="text-destructive">*</span>
           </Label>
           <Input
             id="profile-fullname"
@@ -133,14 +146,16 @@ export default function CustomerProfilePage() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             disabled={isSubmitting}
-            className="mt-1 text-xs h-10"
+            className="h-11 sm:h-12 min-h-[44px] text-xs sm:text-sm"
             required
+            aria-required="true"
+            aria-invalid={errorMsg && !fullName ? true : false}
           />
         </div>
 
-        <div>
-          <Label htmlFor="profile-phone" className="text-xs font-bold flex items-center gap-1.5">
-            <Phone className="h-3.5 w-3.5 text-primary" /> Contact Phone
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-phone" className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
+            <Phone className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Contact Phone
           </Label>
           <Input
             id="profile-phone"
@@ -148,12 +163,22 @@ export default function CustomerProfilePage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             disabled={isSubmitting}
-            className="mt-1 text-xs h-10"
+            className="h-11 sm:h-12 min-h-[44px] text-xs sm:text-sm"
           />
         </div>
 
-        <Button type="submit" disabled={isSubmitting} className="w-full h-11 font-bold text-sm">
-          {isSubmitting ? "Saving Changes..." : "Save Profile Changes"}
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full h-11 sm:h-12 min-h-[44px] font-bold text-xs sm:text-sm"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving Changes...
+            </>
+          ) : (
+            "Save Profile Changes"
+          )}
         </Button>
       </form>
     </div>

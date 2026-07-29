@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle2, Sparkles, UserCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Sparkles, UserCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { buildEmailConfirmationRedirect } from "@/lib/auth/redirects";
 
@@ -98,7 +98,7 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-[75vh] items-center justify-center p-4">
-      <Card className="border-primary/20 w-full max-w-md shadow-lg">
+      <Card className="border-primary/20 w-full max-w-md shadow-lg rounded-2xl sm:rounded-3xl">
         <CardHeader className="space-y-2 text-center">
           <div className="bg-primary text-primary-foreground font-outfit mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-extrabold shadow-md">
             K
@@ -106,7 +106,7 @@ export default function RegisterPage() {
           <CardTitle className="font-outfit text-2xl font-bold tracking-tight">
             Customer Account Registration
           </CardTitle>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs sm:text-sm">
             Create your KYU Rentals account to reserve karaoke packages & manage bookings
           </CardDescription>
         </CardHeader>
@@ -114,7 +114,8 @@ export default function RegisterPage() {
           {formError && (
             <div
               role="alert"
-              className="border-destructive/30 bg-destructive/10 text-destructive mb-4 flex gap-3 rounded-md border p-3 text-sm"
+              aria-live="assertive"
+              className="border-destructive/30 bg-destructive/10 text-destructive mb-4 flex gap-3 rounded-xl border p-3.5 text-xs sm:text-sm font-medium"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>{formError}</p>
@@ -124,7 +125,8 @@ export default function RegisterPage() {
           {formSuccess && (
             <div
               role="status"
-              className="border-primary/30 bg-primary/10 text-foreground mb-4 flex gap-3 rounded-md border p-3 text-sm"
+              aria-live="polite"
+              className="border-primary/30 bg-primary/10 text-foreground mb-4 flex gap-3 rounded-xl border p-3.5 text-xs sm:text-sm font-medium"
             >
               <CheckCircle2 className="text-primary mt-0.5 h-4 w-4 shrink-0" />
               <p>{formSuccess}</p>
@@ -132,8 +134,10 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleRegister} className="space-y-4" noValidate>
-            <div className="space-y-2">
-              <Label htmlFor="reg-fullname">Full Name</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="reg-fullname" className="text-xs sm:text-sm font-semibold">
+                Full Name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="reg-fullname"
                 type="text"
@@ -142,10 +146,15 @@ export default function RegisterPage() {
                 onChange={(e) => setFullName(e.target.value)}
                 disabled={isLoading}
                 required
+                aria-required="true"
+                aria-invalid={formError && !fullName ? true : false}
+                className="h-11 sm:h-12 min-h-[44px] text-xs sm:text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="reg-email">Email Address</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="reg-email" className="text-xs sm:text-sm font-semibold">
+                Email Address <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="reg-email"
                 type="email"
@@ -154,10 +163,15 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
                 required
+                aria-required="true"
+                aria-invalid={formError && !email ? true : false}
+                className="h-11 sm:h-12 min-h-[44px] text-xs sm:text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="reg-password">Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="reg-password" className="text-xs sm:text-sm font-semibold">
+                Password <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="reg-password"
                 type="password"
@@ -166,17 +180,31 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
                 required
+                aria-required="true"
+                aria-invalid={formError && !password ? true : false}
+                className="h-11 sm:h-12 min-h-[44px] text-xs sm:text-sm"
               />
             </div>
-            <Button type="submit" className="h-11 w-full font-bold" disabled={isLoading}>
-              <UserCheck className="mr-2 h-4 w-4" />
-              {isLoading ? "Creating Account..." : "Register & Reserve Package"}
+            <Button
+              type="submit"
+              className="h-11 sm:h-12 min-h-[44px] w-full font-bold text-xs sm:text-sm"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating Account...
+                </>
+              ) : (
+                <>
+                  <UserCheck className="mr-2 h-4 w-4" /> Register & Reserve Package
+                </>
+              )}
             </Button>
           </form>
 
           {packageSlug && (
-            <p className="text-muted-foreground mt-4 flex items-center justify-center gap-1 text-center text-xs">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Reserving package:{" "}
+            <p className="text-muted-foreground mt-4 flex items-center justify-center gap-1 text-center text-xs font-medium">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" aria-hidden="true" /> Reserving package:{" "}
               <strong className="text-foreground capitalize">{packageSlug}</strong>
             </p>
           )}
