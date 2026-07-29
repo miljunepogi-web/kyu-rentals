@@ -86,12 +86,12 @@ export async function initializeBookingPaymentAction(
       };
     }
 
-    // 2. Idempotency Check: Reuse active pending payment session if exists
+    // 2. Idempotency Check: Reuse active pending payment session if it already exists.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: existingPaymentData } = await (adminSupabase.from("payments") as any)
       .select("id, gateway_checkout_session_id, gateway_checkout_url, gateway_payment_intent_id, status")
       .eq("booking_id", booking.id)
-      .eq("status", "PENDING")
+      .in("status", ["PROCESSING", "PENDING"])
       .maybeSingle();
 
     interface ExistingPayment {
@@ -99,7 +99,7 @@ export async function initializeBookingPaymentAction(
       gateway_checkout_session_id: string;
       gateway_checkout_url: string;
       gateway_payment_intent_id?: string;
-      status: string;
+      status: "PROCESSING" | "PENDING";
     }
 
     const existingPayment = existingPaymentData as ExistingPayment | null;
@@ -123,7 +123,50 @@ export async function initializeBookingPaymentAction(
       };
     }
 
-    // 3. Call PayMongo API Client
+    if (existingPayment?.status === "PROCESSING") {
+      return {
+        success: false,
+        error: "A PayMongo checkout session is already being initialized. Please retry shortly.",
+        code: ErrorCode.CONFLICT,
+      };
+    }
+
+    // 3. Claim the one active checkout slot before making the external API call.
+    // The database partial unique index prevents concurrent tabs from creating
+    // multiple payable sessions for the same reservation deposit.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: claimedPayment, error: claimError } = await (adminSupabase.from("payments") as any)
+      .insert({
+        tenant_id: booking.tenant_id,
+        booking_id: booking.id,
+        payment_type: "RESERVATION_DEPOSIT",
+        payment_method: "PAYMONGO_CHECKOUT",
+        gateway_provider: "PAYMONGO",
+        amount: booking.deposit_amount,
+        currency: "PHP",
+        status: "PROCESSING",
+      })
+      .select("id")
+      .single();
+
+    if (claimError || !claimedPayment) {
+      if (claimError?.code === "23505") {
+        return {
+          success: false,
+          error: "A PayMongo checkout session already exists or is being initialized. Please retry shortly.",
+          code: ErrorCode.CONFLICT,
+        };
+      }
+
+      logger.error("Failed to claim PayMongo checkout initialization", { error: claimError });
+      return {
+        success: false,
+        error: "Failed to initialize a unique payment session",
+        code: ErrorCode.INTERNAL_ERROR,
+      };
+    }
+
+    // 4. Call PayMongo API Client
     const packageName = booking.snapshot?.package?.name || "KYU Rental Setup";
     const customerName = booking.snapshot?.customer?.fullName || "Valued Customer";
     const customerEmail = booking.snapshot?.customer?.email || "customer@example.com";
@@ -140,6 +183,11 @@ export async function initializeBookingPaymentAction(
     });
 
     if (!gatewayResult.success || !gatewayResult.data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (adminSupabase.from("payments") as any)
+        .update({ status: "FAILED" })
+        .eq("id", claimedPayment.id)
+        .eq("status", "PROCESSING");
       return {
         success: false,
         error: gatewayResult.error || "Failed to generate payment gateway session",
@@ -149,35 +197,34 @@ export async function initializeBookingPaymentAction(
 
     const { checkoutSessionId, checkoutUrl, paymentIntentId } = gatewayResult.data;
 
-    // 4. Database Persistence (payments table)
+    // 5. Finalize the claimed payment row with the hosted checkout details.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: paymentRecord, error: paymentInsertErr } = await (adminSupabase.from("payments") as any)
-      .insert({
-        tenant_id: booking.tenant_id,
-        booking_id: booking.id,
-        payment_type: "RESERVATION_DEPOSIT",
-        payment_method: "PAYMONGO_CHECKOUT",
-        gateway_provider: "PAYMONGO",
+    const { data: paymentRecord, error: paymentUpdateErr } = await (adminSupabase.from("payments") as any)
+      .update({
         gateway_checkout_session_id: checkoutSessionId,
         gateway_payment_intent_id: paymentIntentId || null,
         gateway_checkout_url: checkoutUrl,
-        amount: booking.deposit_amount,
-        currency: "PHP",
         status: "PENDING",
       })
+      .eq("id", claimedPayment.id)
+      .eq("status", "PROCESSING")
       .select("id")
       .single();
 
-    if (paymentInsertErr || !paymentRecord) {
-      logger.error("Failed to persist payment record", { error: paymentInsertErr });
+    if (paymentUpdateErr || !paymentRecord) {
+      logger.error("PayMongo created a checkout but local finalization failed", {
+        error: paymentUpdateErr,
+        checkoutSessionId,
+        paymentId: claimedPayment.id,
+      });
       return {
         success: false,
-        error: "Failed to persist checkout session details to database",
+        error: "Checkout was created but local reconciliation is incomplete. Do not retry; contact support.",
         code: ErrorCode.INTERNAL_ERROR,
       };
     }
 
-    // 5. Audit Event Insertion
+    // 6. Audit Event Insertion
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (adminSupabase.from("booking_timeline_events") as any).insert({
       tenant_id: booking.tenant_id,

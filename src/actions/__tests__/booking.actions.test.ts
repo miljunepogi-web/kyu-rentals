@@ -9,7 +9,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null } })) },
+    auth: {
+      getUser: vi.fn(async () => ({
+        data: { user: { id: "customer-1", email: "test@example.com" } },
+        error: null,
+      })),
+    },
     from: mocks.publicFrom,
     rpc: mocks.publicRpc,
   })),
@@ -23,6 +28,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import { createBookingAction } from "../booking.actions";
+import { createClient } from "@/lib/supabase/server";
 
 function queryReturning<T>(result: T) {
   const query = {
@@ -49,34 +55,37 @@ describe("createBookingAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    let packageRead = 0;
     mocks.publicFrom.mockImplementation((table: string) => {
-      if (table !== "packages") {
-        throw new Error(`Public client unexpectedly accessed ${table}`);
+      if (table === "profiles") {
+        return queryReturning({
+          data: {
+            id: "customer-1",
+            tenant_id: "tenant-1",
+            email: "test@example.com",
+          },
+          error: null,
+        });
       }
 
-      packageRead += 1;
-      return packageRead === 1
-        ? queryReturning({ data: { tenant_id: "tenant-1" } })
-        : queryReturning({
-            data: {
-              id: "package-1",
-              name: "KYU Mini Party",
-              slug: "kyu-mini",
-              price_4_hours: 1800,
-              price_8_hours: 2500,
-              price_full_day: 3000,
-            },
-            error: null,
-          });
+      if (table === "packages") {
+        return queryReturning({
+          data: {
+            id: "package-1",
+            name: "KYU Mini Party",
+            slug: "kyu-mini",
+            price_4_hours: 1800,
+            price_8_hours: 2500,
+            price_full_day: 3000,
+          },
+          error: null,
+        });
+      }
+
+      throw new Error(`Public client unexpectedly accessed ${table}`);
     });
 
     let idempotencyAccess = 0;
     mocks.adminFrom.mockImplementation((table: string) => {
-      if (table === "profiles") {
-        return queryReturning({ data: null });
-      }
-
       if (table === "idempotency_keys") {
         idempotencyAccess += 1;
         if (idempotencyAccess === 1) {
@@ -101,7 +110,42 @@ describe("createBookingAction", () => {
     });
   });
 
-  test("uses the server-only admin client for guest idempotency and atomic booking writes", async () => {
+  test("rejects direct booking action calls without an authenticated customer", async () => {
+    vi.mocked(createClient).mockResolvedValueOnce({
+      auth: {
+        getUser: vi.fn(async () => ({
+          data: { user: null },
+          error: null,
+        })),
+      },
+      from: mocks.publicFrom,
+      rpc: mocks.publicRpc,
+    } as never);
+
+    const result = await createBookingAction(
+      {
+        packageSlug: "kyu-mini",
+        eventDate: "2026-08-15",
+        startTime: "14:00",
+        durationHours: 4,
+        deliveryAddress: "123 QA Street, Quezon City",
+        deliveryZone: "Metro Manila Core",
+        customerFullName: "Unauthenticated Customer",
+        customerEmail: "test@example.com",
+        customerPhone: "09171234567",
+        termsAccepted: true,
+        addons: [],
+      },
+      "unauthenticated-booking-key",
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.code).toBe("UNAUTHORIZED");
+    expect(mocks.adminFrom).not.toHaveBeenCalled();
+    expect(mocks.adminRpc).not.toHaveBeenCalled();
+  });
+
+  test("binds atomic booking writes to the authenticated customer profile", async () => {
     const result = await createBookingAction(
       {
         packageSlug: "kyu-mini",
@@ -127,7 +171,7 @@ describe("createBookingAction", () => {
       "create_booking_atomic",
       expect.objectContaining({
         p_tenant_id: "tenant-1",
-        p_customer_id: null,
+        p_customer_id: "customer-1",
         p_package_id: "package-1",
       })
     );
@@ -143,7 +187,7 @@ describe("createBookingAction", () => {
         deliveryAddress: "123 QA Street, Quezon City",
         deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Pricing Guard",
-        customerEmail: "pricing-guard@example.com",
+        customerEmail: "test@example.com",
         customerPhone: "09171234567",
         termsAccepted: true,
         addons: [
@@ -186,16 +230,23 @@ describe("createBookingAction", () => {
   });
 
   test("does not leave a processing idempotency key when package validation fails", async () => {
-    let packageRead = 0;
     mocks.publicFrom.mockImplementation((table: string) => {
-      if (table !== "packages") {
-        throw new Error(`Public client unexpectedly accessed ${table}`);
+      if (table === "profiles") {
+        return queryReturning({
+          data: {
+            id: "customer-1",
+            tenant_id: "tenant-1",
+            email: "test@example.com",
+          },
+          error: null,
+        });
       }
 
-      packageRead += 1;
-      return packageRead === 1
-        ? queryReturning({ data: { tenant_id: "tenant-1" } })
-        : queryReturning({ data: null, error: null });
+      if (table === "packages") {
+        return queryReturning({ data: null, error: null });
+      }
+
+      throw new Error(`Public client unexpectedly accessed ${table}`);
     });
 
     const result = await createBookingAction(
@@ -239,7 +290,7 @@ describe("createBookingAction", () => {
         deliveryAddress: "123 QA Street, Quezon City",
         deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Race Test",
-        customerEmail: "race@example.com",
+        customerEmail: "test@example.com",
         customerPhone: "09171234567",
         termsAccepted: true,
         addons: [],
@@ -271,7 +322,7 @@ describe("createBookingAction", () => {
         deliveryAddress: "123 QA Street, Quezon City",
         deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Repeat Customer",
-        customerEmail: "repeat@example.com",
+        customerEmail: "test@example.com",
         customerPhone: "09171234567",
         termsAccepted: true,
         addons: [],
@@ -303,7 +354,7 @@ describe("createBookingAction", () => {
         deliveryAddress: "123 QA Street, Quezon City",
         deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Repeat Race",
-        customerEmail: "repeat-race@example.com",
+        customerEmail: "test@example.com",
         customerPhone: "09171234567",
         termsAccepted: true,
         addons: [],

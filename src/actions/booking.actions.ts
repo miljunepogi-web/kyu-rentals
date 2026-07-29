@@ -62,60 +62,44 @@ export async function createBookingAction(
     const adminSupabase = createAdminClient();
 
     // B. Tenant & Customer Context Resolution
-    const { data: userData } = await supabase.auth.getUser();
-    let currentUserId = userData?.user?.id;
-    let resolvedTenantId: string | null = null;
-
-    if (currentUserId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: userProfile } = await (supabase.from("profiles") as any)
-        .select("id, tenant_id")
-        .eq("id", currentUserId)
-        .eq("is_deleted", false)
-        .maybeSingle();
-
-      if (userProfile?.tenant_id) {
-        resolvedTenantId = userProfile.tenant_id;
-      }
-    }
-
-    if (!currentUserId || !resolvedTenantId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existingProfile } = await (adminSupabase.from("profiles") as any)
-        .select("id, tenant_id")
-        .eq("email", payload.customerEmail)
-        .eq("is_deleted", false)
-        .maybeSingle();
-
-      if (existingProfile) {
-        currentUserId = existingProfile.id;
-        resolvedTenantId = existingProfile.tenant_id;
-      }
-    }
-
-    if (!resolvedTenantId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pkgTenantData } = await (supabase.from("packages") as any)
-        .select("tenant_id")
-        .eq("slug", payload.packageSlug)
-        .eq("is_published", true)
-        .eq("is_deleted", false)
-        .maybeSingle();
-
-      if (pkgTenantData?.tenant_id) {
-        resolvedTenantId = pkgTenantData.tenant_id;
-      }
-    }
-
-    if (!resolvedTenantId) {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
       return {
         success: false,
-        error: "Unable to resolve tenant context for booking creation",
-        code: ErrorCode.BAD_REQUEST,
+        error: "Please sign in before creating a booking.",
+        code: ErrorCode.UNAUTHORIZED,
       };
     }
 
-    tenantId = resolvedTenantId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: userProfile, error: profileError } = await (supabase.from("profiles") as any)
+      .select("id, tenant_id, email")
+      .eq("id", user.id)
+      .eq("is_active", true)
+      .eq("is_deleted", false)
+      .maybeSingle();
+
+    if (profileError || !userProfile?.tenant_id || !userProfile?.email) {
+      return {
+        success: false,
+        error: "Unable to resolve an active customer profile for this booking.",
+        code: ErrorCode.UNAUTHORIZED,
+      };
+    }
+
+    if (userProfile.email.trim().toLowerCase() !== payload.customerEmail.trim().toLowerCase()) {
+      return {
+        success: false,
+        error: "Booking email must match the authenticated customer account.",
+        code: ErrorCode.CONFLICT,
+      };
+    }
+
+    const currentUserId = user.id;
+    tenantId = userProfile.tenant_id;
 
     // C. Idempotency Key Processing & Processing Lock Check
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,14 +235,40 @@ export async function createBookingAction(
     };
 
     // H. Register the request only after all read-only validation succeeds.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: keyInsertErr } = await (adminSupabase.from("idempotency_keys") as any).insert({
-      tenant_id: tenantId,
-      key: idempotencyKey,
-      request_path: "/api/v1/bookings/start",
-      request_hash: requestHash,
-      status: "processing",
-    });
+    let keyInsertErr: { message?: string } | null = null;
+    if (existingKey?.status === "failed") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: claimedKey, error } = await (adminSupabase.from("idempotency_keys") as any)
+        .update({
+          status: "processing",
+          response_status: null,
+          response_body: null,
+        })
+        .eq("tenant_id", tenantId)
+        .eq("key", idempotencyKey)
+        .eq("status", "failed")
+        .select("id")
+        .maybeSingle();
+      keyInsertErr = error;
+      if (!error && !claimedKey) {
+        return {
+          success: false,
+          error: "This booking retry is already being processed.",
+          code: ErrorCode.CONFLICT,
+        };
+      }
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (adminSupabase.from("idempotency_keys") as any).insert({
+        tenant_id: tenantId,
+        key: idempotencyKey,
+        user_id: currentUserId,
+        request_path: "/api/v1/bookings/start",
+        request_hash: requestHash,
+        status: "processing",
+      });
+      keyInsertErr = error;
+    }
 
     if (keyInsertErr) {
       logger.error("Idempotency key insert error", { error: keyInsertErr });
@@ -275,7 +285,7 @@ export async function createBookingAction(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rpcResult, error: rpcErr } = await (adminSupabase.rpc as any)("create_booking_atomic", {
       p_tenant_id: tenantId,
-      p_customer_id: currentUserId || null,
+      p_customer_id: currentUserId,
       p_customer_email: payload.customerEmail,
       p_customer_name: payload.customerFullName,
       p_customer_phone: payload.customerPhone,

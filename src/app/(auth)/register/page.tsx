@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AlertCircle, CheckCircle2, Sparkles, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { buildEmailConfirmationRedirect } from "@/lib/auth/redirects";
+import Link from "next/link";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -180,6 +181,20 @@ export default function RegisterPage() {
               <strong className="text-foreground capitalize">{packageSlug}</strong>
             </p>
           )}
+
+          <p className="mt-5 text-center text-xs text-muted-foreground">
+            Already registered?{" "}
+            <Link
+              href={
+                packageSlug
+                  ? `/login?next=${encodeURIComponent(`/packages/${packageSlug}/book`)}`
+                  : "/login"
+              }
+              className="font-semibold text-foreground underline underline-offset-2"
+            >
+              Sign in instead
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

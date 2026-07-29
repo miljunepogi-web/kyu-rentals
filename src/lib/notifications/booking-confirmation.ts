@@ -98,6 +98,7 @@ export async function sendBookingConfirmationEmail(data: BookingConfirmationData
     to: data.customerEmail,
     subject: `KYU Rentals booking confirmed: ${data.bookingPublicId}`,
     html,
+    idempotencyKey: `booking-confirmed/${data.bookingId}`,
     attachments: [
       {
         filename: buildReceiptFileName(data.bookingPublicId),

@@ -37,13 +37,6 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Legacy auth route /login redirects to /admin
-  if (pathname === "/login") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin";
-    return NextResponse.redirect(url);
-  }
-
   // Admin route protection & entry point handling
   if (pathname.startsWith("/admin")) {
     // 1. Unauthenticated users can only view /admin login form
