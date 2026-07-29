@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPackageBySlug, getPublishedPackages } from "@/queries/packages.queries";
+import { getPackageBySlug } from "@/queries/packages.queries";
 import { formatPHP } from "@/utils/currency";
 import { InclusionsList } from "@/components/marketing/InclusionsList";
 import { AvailabilityChecker } from "@/components/marketing/AvailabilityChecker";
@@ -14,6 +14,8 @@ interface PackageDetailPageProps {
   }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PackageDetailPageProps) {
   const { slug } = await params;
   const pkg = await getPackageBySlug(slug);
@@ -23,11 +25,6 @@ export async function generateMetadata({ params }: PackageDetailPageProps) {
     title: `${pkg.name} | KYU Rentals`,
     description: pkg.description,
   };
-}
-
-export async function generateStaticParams() {
-  const pkgs = await getPublishedPackages();
-  return pkgs.map((p) => ({ slug: p.slug }));
 }
 
 export default async function PackageDetailPage({ params }: PackageDetailPageProps) {

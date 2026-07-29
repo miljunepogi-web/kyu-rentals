@@ -93,7 +93,7 @@ export function AdminSidebarContent({
             <SidebarNavLink href="/admin/bookings" icon={<CalendarCheck className="h-4 w-4 shrink-0" />} label="Bookings" currentPath={pathname} onClick={onClose} />
             <SidebarNavLink href="/admin/calendar" icon={<CalendarCheck className="h-4 w-4 shrink-0 text-primary" />} label="Calendar Schedule" currentPath={pathname} onClick={onClose} />
             <SidebarNavLink href="/admin/customers" icon={<Users className="h-4 w-4 shrink-0 text-emerald-600" />} label="Customer CRM" currentPath={pathname} onClick={onClose} />
-            <SidebarNavLink href="/packages" icon={<Package className="h-4 w-4 shrink-0" />} label="Packages Catalog ↗" currentPath={pathname} onClick={onClose} />
+            <SidebarNavLink href="/admin/packages" icon={<Package className="h-4 w-4 shrink-0" />} label="Package Catalog" currentPath={pathname} onClick={onClose} />
             <SidebarNavLink href="/admin/inventory" icon={<Box className="h-4 w-4 shrink-0" />} label="Inventory Fleet" currentPath={pathname} onClick={onClose} />
             <SidebarNavLink href="/admin/logistics" icon={<Truck className="h-4 w-4 shrink-0" />} label="Delivery & Logistics" currentPath={pathname} onClick={onClose} />
             <SidebarNavLink href="/admin/incidents" icon={<AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />} label="Equipment Incidents" currentPath={pathname} onClick={onClose} />

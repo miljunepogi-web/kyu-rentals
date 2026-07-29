@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { getBookingPackageSnapshot } from "@/queries/booking-snapshot";
 
 export interface CustomerBookingListItem {
   id: string;
@@ -67,6 +68,7 @@ export async function getCustomerBookings(customerId: string): Promise<CustomerB
     deposit_amount: number;
     balance_amount: number;
     created_at: string;
+    snapshot: unknown;
     packages: { name: string } | null;
   };
 
@@ -75,7 +77,7 @@ export async function getCustomerBookings(customerId: string): Promise<CustomerB
     .from("bookings")
     .select(`
       id, public_id, event_date, start_time, duration_hours, delivery_address, status,
-      grand_total, deposit_amount, balance_amount, created_at,
+      grand_total, deposit_amount, balance_amount, created_at, snapshot,
       packages!package_id (name)
     `)
     .eq("customer_id", customerId)
@@ -84,20 +86,23 @@ export async function getCustomerBookings(customerId: string): Promise<CustomerB
 
   if (error || !data) return [];
 
-  return data.map((b) => ({
-    id: b.id,
-    publicId: b.public_id,
-    packageName: b.packages?.name || "Karaoke Package",
-    eventDate: b.event_date,
-    startTime: b.start_time,
-    durationHours: b.duration_hours,
-    deliveryAddress: b.delivery_address,
-    status: b.status,
-    grandTotal: Number(b.grand_total) || 0,
-    depositAmount: Number(b.deposit_amount) || 0,
-    balanceAmount: Number(b.balance_amount) || 0,
-    createdAt: b.created_at,
-  }));
+  return data.map((b) => {
+    const frozenPackage = getBookingPackageSnapshot(b.snapshot);
+    return {
+      id: b.id,
+      publicId: b.public_id,
+      packageName: frozenPackage.name || b.packages?.name || "Karaoke Package",
+      eventDate: b.event_date,
+      startTime: b.start_time,
+      durationHours: b.duration_hours,
+      deliveryAddress: b.delivery_address,
+      status: b.status,
+      grandTotal: Number(b.grand_total) || 0,
+      depositAmount: Number(b.deposit_amount) || 0,
+      balanceAmount: Number(b.balance_amount) || 0,
+      createdAt: b.created_at,
+    };
+  });
 }
 
 export async function getCustomerBookingDetail(
@@ -125,6 +130,7 @@ export async function getCustomerBookingDetail(
     balance_amount: number;
     vehicle_info: string | null;
     created_at: string;
+    snapshot: unknown;
     packages: { name: string } | null;
     inventory_units?: { serial_number: string } | null;
     assigned_personnel?: { full_name: string } | null;
@@ -136,7 +142,7 @@ export async function getCustomerBookingDetail(
     .select(`
       id, public_id, event_date, start_time, duration_hours, delivery_address, delivery_zone,
       special_instructions, status, subtotal_amount, surcharge_amount, delivery_fee,
-      discount_amount, grand_total, deposit_amount, balance_amount, vehicle_info, created_at,
+      discount_amount, grand_total, deposit_amount, balance_amount, vehicle_info, created_at, snapshot,
       packages!package_id (name),
       inventory_units!assigned_unit_id (serial_number),
       assigned_personnel:profiles!assigned_delivery_personnel_id (full_name)
@@ -147,6 +153,7 @@ export async function getCustomerBookingDetail(
     .maybeSingle() as { data: DetailRow | null; error: unknown };
 
   if (error || !b) return null;
+  const frozenPackage = getBookingPackageSnapshot(b.snapshot);
 
   // Fetch payments
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +173,7 @@ export async function getCustomerBookingDetail(
   return {
     id: b.id,
     publicId: b.public_id,
-    packageName: b.packages?.name || "Karaoke Package",
+    packageName: frozenPackage.name || b.packages?.name || "Karaoke Package",
     eventDate: b.event_date,
     startTime: b.start_time,
     durationHours: b.duration_hours,

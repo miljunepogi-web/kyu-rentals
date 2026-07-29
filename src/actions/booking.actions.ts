@@ -149,7 +149,12 @@ export async function createBookingAction(
     // D. Package Lookup & Strict Price Verification
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pkgData, error: pkgErr } = await (supabase.from("packages") as any)
-      .select("id, name, slug, price_4_hours, price_8_hours, price_full_day")
+      .select(`
+        id, name, slug, tagline, description,
+        price_4_hours, price_8_hours, price_full_day,
+        featured_image_url, gallery_urls, inclusions,
+        max_guests, sound_rating, version
+      `)
       .eq("tenant_id", tenantId)
       .eq("slug", payload.packageSlug)
       .eq("is_published", true)
@@ -160,9 +165,17 @@ export async function createBookingAction(
       id: string;
       name: string;
       slug: string;
+      tagline: string | null;
+      description: string | null;
       price_4_hours: number;
       price_8_hours: number;
       price_full_day: number;
+      featured_image_url: string | null;
+      gallery_urls: string[];
+      inclusions: unknown[];
+      max_guests: string | null;
+      sound_rating: string | null;
+      version: number;
     }
 
     const pkg = pkgData as PkgRecord | null;
@@ -214,6 +227,19 @@ export async function createBookingAction(
         id: packageId,
         name: packageName,
         slug: payload.packageSlug,
+        version: pkg.version,
+        tagline: pkg.tagline,
+        description: pkg.description,
+        featuredImageUrl: pkg.featured_image_url,
+        galleryUrls: pkg.gallery_urls,
+        inclusions: pkg.inclusions,
+        maxGuests: pkg.max_guests,
+        soundRating: pkg.sound_rating,
+        rates: {
+          fourHours: pkg.price_4_hours,
+          eightHours: pkg.price_8_hours,
+          fullDay: pkg.price_full_day,
+        },
         selectedDuration: payload.durationHours,
         appliedBasePrice: pricing.basePackagePrice,
       },

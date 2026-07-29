@@ -5,6 +5,8 @@ import { FAQAccordion } from "@/components/marketing/FAQAccordion";
 import { CoverageChecker } from "@/components/marketing/CoverageChecker";
 import { getPublishedPackages } from "@/queries/packages.queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function LandingPage() {
   const packages = await getPublishedPackages();
 

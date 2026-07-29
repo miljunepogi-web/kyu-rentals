@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
-import { getBookingCustomerContact } from "@/queries/booking-snapshot";
+import {
+  getBookingCustomerContact,
+  getBookingPackageSnapshot,
+} from "@/queries/booking-snapshot";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -171,12 +174,13 @@ export async function getAdminDeliverySchedule(
 
   return data.map((b) => {
     const customer = getBookingCustomerContact(b.snapshot);
+    const frozenPackage = getBookingPackageSnapshot(b.snapshot);
     return {
       id: b.id,
       publicId: b.public_id,
       customerName: customer.fullName || b.profiles?.full_name || "Customer",
       customerPhone: customer.phone || b.profiles?.phone || "—",
-      packageName: b.packages?.name || "Package",
+      packageName: frozenPackage.name || b.packages?.name || "Package",
       eventDate: b.event_date,
       startTime: b.start_time,
       deliveryAddress: b.delivery_address,

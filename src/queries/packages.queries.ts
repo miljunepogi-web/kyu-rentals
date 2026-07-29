@@ -1,3 +1,10 @@
+import "server-only";
+
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { env } from "@/config/env";
+import { Database, Json } from "@/types/supabase";
+import { logger } from "@/utils/logger";
+
 export interface PackageInclusion {
   id: string;
   name: string;
@@ -21,98 +28,138 @@ export interface RentalPackage {
   isPopular?: boolean;
   maxGuests?: string;
   soundRating?: string;
+  version: number;
 }
 
-export const MOCK_PACKAGES: RentalPackage[] = [
-  {
-    id: "pkg-001",
-    slug: "kyu-mini",
-    name: "KYU Mini Party",
-    tagline: "Compact power for intimate home gatherings",
-    description: "Perfect for condo celebrations, small family dinners, and private room parties. Crystal clear vocal output with zero distortion.",
-    price4Hours: 1800,
-    price8Hours: 2500,
-    priceFullDay: 3000,
-    featuredImageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80",
-    ],
-    inclusions: [
-      { id: "inc-1", name: "Heavy Duty Powered Speaker (10-inch)", quantity: 1, iconName: "speaker" },
-      { id: "inc-2", name: "UHF Wireless Microphones", quantity: 2, iconName: "mic" },
-      { id: "inc-3", name: "HD Songbook Player (100k+ Songs)", quantity: 1, iconName: "music" },
-      { id: "inc-4", name: "Heavy Duty Tripod Stand", quantity: 1, iconName: "stand" },
-      { id: "inc-5", name: "HDMI & Aux Cables", quantity: 1, iconName: "cable" },
-    ],
-    isFeatured: true,
-    isPopular: false,
-    maxGuests: "10-20 Guests",
-    soundRating: "300 Watts",
-  },
-  {
-    id: "pkg-002",
-    slug: "kyu-party-pro",
-    name: "KYU Party Pro",
-    tagline: "Our most popular setup for birthdays and backyard events",
-    description: "High-impact dual speaker setup with dedicated wireless mics, party laser lights, and song songbook tablet interface.",
-    price4Hours: 2800,
-    price8Hours: 3600,
-    priceFullDay: 4200,
-    featuredImageUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80",
-    ],
-    inclusions: [
-      { id: "inc-1", name: "Dual Powered Speakers (12-inch)", quantity: 2, iconName: "speaker" },
-      { id: "inc-2", name: "Pro Vocal Wireless Microphones", quantity: 2, iconName: "mic" },
-      { id: "inc-3", name: "HD Player (Latest 2026 Hits)", quantity: 1, iconName: "music" },
-      { id: "inc-4", name: "RGB Disco Party Laser Light", quantity: 1, iconName: "sparkles" },
-      { id: "inc-5", name: "Songbook Tablet Controller", quantity: 1, iconName: "tablet" },
-      { id: "inc-6", name: "10m Extension Cable", quantity: 1, iconName: "cable" },
-    ],
-    isFeatured: true,
-    isPopular: true,
-    maxGuests: "30-60 Guests",
-    soundRating: "800 Watts",
-  },
-  {
-    id: "pkg-003",
-    slug: "kyu-concert-master",
-    name: "KYU Concert Master",
-    tagline: "Unbeatable sound clarity for outdoor events & company parties",
-    description: "Full venue audio package with dual subwoofers, 4 wireless microphones, stage lighting, and priority setup service.",
-    price4Hours: 4800,
-    price8Hours: 6200,
-    priceFullDay: 7500,
-    featuredImageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80",
-    ],
-    inclusions: [
-      { id: "inc-1", name: "Dual Concert Speakers (15-inch)", quantity: 2, iconName: "speaker" },
-      { id: "inc-2", name: "15-inch Subwoofer Enclosure", quantity: 1, iconName: "subwoofer" },
-      { id: "inc-3", name: "UHF Quad Wireless Microphones", quantity: 4, iconName: "mic" },
-      { id: "inc-4", name: "Smart Song System + Dual Monitors", quantity: 1, iconName: "monitor" },
-      { id: "inc-5", name: "DMX Stage Lighting Bar", quantity: 1, iconName: "sparkles" },
-      { id: "inc-6", name: "White-Glove Delivery & Sound Engineer Setup", quantity: 1, iconName: "wrench" },
-    ],
-    isFeatured: true,
-    isPopular: false,
-    maxGuests: "80-150 Guests",
-    soundRating: "2000 Watts",
-  },
-];
+type PackageRow = Pick<
+  Database["public"]["Tables"]["packages"]["Row"],
+  | "id"
+  | "slug"
+  | "name"
+  | "tagline"
+  | "description"
+  | "price_4_hours"
+  | "price_8_hours"
+  | "price_full_day"
+  | "featured_image_url"
+  | "gallery_urls"
+  | "inclusions"
+  | "is_featured"
+  | "is_popular"
+  | "max_guests"
+  | "sound_rating"
+  | "version"
+>;
+
+function createPublicCatalogClient() {
+  return createSupabaseClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            cache: "no-store",
+          }),
+      },
+    },
+  );
+}
+
+function isInclusion(value: unknown): value is PackageInclusion {
+  if (!value || typeof value !== "object") return false;
+  const inclusion = value as Record<string, unknown>;
+  return (
+    typeof inclusion.id === "string" &&
+    typeof inclusion.name === "string" &&
+    typeof inclusion.quantity === "number" &&
+    inclusion.quantity > 0 &&
+    (inclusion.iconName === undefined || typeof inclusion.iconName === "string")
+  );
+}
+
+function parseInclusions(value: Json): PackageInclusion[] {
+  if (!Array.isArray(value)) return [];
+  return (value as unknown[]).filter(isInclusion);
+}
+
+function mapPackage(row: PackageRow): RentalPackage {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    tagline: row.tagline || "",
+    description: row.description || "",
+    price4Hours: Number(row.price_4_hours),
+    price8Hours: Number(row.price_8_hours),
+    priceFullDay: Number(row.price_full_day),
+    featuredImageUrl: row.featured_image_url || "/package-placeholder.jpg",
+    galleryUrls: row.gallery_urls || [],
+    inclusions: parseInclusions(row.inclusions),
+    isFeatured: row.is_featured,
+    isPopular: row.is_popular,
+    maxGuests: row.max_guests || undefined,
+    soundRating: row.sound_rating || undefined,
+    version: row.version,
+  };
+}
+
+const PACKAGE_SELECT = [
+  "id",
+  "slug",
+  "name",
+  "tagline",
+  "description",
+  "price_4_hours",
+  "price_8_hours",
+  "price_full_day",
+  "featured_image_url",
+  "gallery_urls",
+  "inclusions",
+  "is_featured",
+  "is_popular",
+  "max_guests",
+  "sound_rating",
+  "version",
+].join(",");
 
 export async function getPublishedPackages(): Promise<RentalPackage[]> {
-  // In production, queries public.packages from Supabase
-  // Returns mock data if database is unseeded
-  return MOCK_PACKAGES;
+  const supabase = createPublicCatalogClient();
+  const { data, error } = await supabase
+    .from("packages")
+    .select(PACKAGE_SELECT)
+    .eq("is_published", true)
+    .eq("is_deleted", false)
+    .order("is_featured", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    logger.error("Published package catalog query failed", { error });
+    return [];
+  }
+
+  return ((data || []) as unknown as PackageRow[]).map(mapPackage);
 }
 
 export async function getPackageBySlug(slug: string): Promise<RentalPackage | null> {
-  const pkgs = await getPublishedPackages();
-  return pkgs.find((p) => p.slug === slug) || null;
+  const supabase = createPublicCatalogClient();
+  const { data, error } = await supabase
+    .from("packages")
+    .select(PACKAGE_SELECT)
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .eq("is_deleted", false)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("Published package lookup failed", { slug, error });
+    return null;
+  }
+
+  return data ? mapPackage(data as unknown as PackageRow) : null;
 }
