@@ -109,10 +109,11 @@ describe("createBookingAction", () => {
         startTime: "14:00",
         durationHours: 4,
         deliveryAddress: "123 QA Street, Quezon City",
-        deliveryZone: "METRO_MANILA",
+        deliveryZone: "Metro Manila Core",
         customerFullName: "KYU E2E Test",
         customerEmail: "test@example.com",
         customerPhone: "09171234567",
+        termsAccepted: true,
         addons: [],
       },
       "booking-test-key"
@@ -129,6 +130,58 @@ describe("createBookingAction", () => {
         p_customer_id: null,
         p_package_id: "package-1",
       })
+    );
+  });
+
+  test("replaces browser-supplied add-on details with the server catalog", async () => {
+    const result = await createBookingAction(
+      {
+        packageSlug: "kyu-mini",
+        eventDate: "2026-08-15",
+        startTime: "14:00",
+        durationHours: 4,
+        deliveryAddress: "123 QA Street, Quezon City",
+        deliveryZone: "Metro Manila Core",
+        customerFullName: "KYU Pricing Guard",
+        customerEmail: "pricing-guard@example.com",
+        customerPhone: "09171234567",
+        termsAccepted: true,
+        addons: [
+          {
+            id: "add-mic",
+            quantity: 2,
+            name: "Free microphones",
+            unitPrice: 0,
+          },
+        ],
+      } as never,
+      "canonical-addon-test-key",
+    );
+
+    expect(result.success).toBe(true);
+    expect(mocks.adminRpc).toHaveBeenCalledWith(
+      "create_booking_atomic",
+      expect.objectContaining({
+        p_snapshot: expect.objectContaining({
+          pricingBreakdown: expect.objectContaining({
+            addons: [
+              {
+                id: "add-mic",
+                name: "Extra Wireless Mic",
+                unitPrice: 300,
+                quantity: 2,
+                totalPrice: 600,
+              },
+            ],
+            addonsSubtotal: 600,
+          }),
+          consent: expect.objectContaining({
+            termsAccepted: true,
+            policyVersion: "2026-07-28",
+            policyPath: "/policies/cancellation",
+          }),
+        }),
+      }),
     );
   });
 
@@ -152,10 +205,11 @@ describe("createBookingAction", () => {
         startTime: "14:00",
         durationHours: 4,
         deliveryAddress: "123 QA Street, Quezon City",
-        deliveryZone: "METRO_MANILA",
+        deliveryZone: "Metro Manila Core",
         customerFullName: "KYU E2E Test",
         customerEmail: "test@example.com",
         customerPhone: "09171234567",
+        termsAccepted: true,
         addons: [],
       },
       "failed-booking-test-key"
@@ -183,10 +237,11 @@ describe("createBookingAction", () => {
         startTime: "14:00",
         durationHours: 4,
         deliveryAddress: "123 QA Street, Quezon City",
-        deliveryZone: "METRO_MANILA",
+        deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Race Test",
         customerEmail: "race@example.com",
         customerPhone: "09171234567",
+        termsAccepted: true,
         addons: [],
       },
       "booking-race-key",
@@ -214,10 +269,11 @@ describe("createBookingAction", () => {
         startTime: "14:00",
         durationHours: 4,
         deliveryAddress: "123 QA Street, Quezon City",
-        deliveryZone: "METRO_MANILA",
+        deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Repeat Customer",
         customerEmail: "repeat@example.com",
         customerPhone: "09171234567",
+        termsAccepted: true,
         addons: [],
       },
       "repeat-customer-booking-key",
@@ -245,10 +301,11 @@ describe("createBookingAction", () => {
         startTime: "14:00",
         durationHours: 4,
         deliveryAddress: "123 QA Street, Quezon City",
-        deliveryZone: "METRO_MANILA",
+        deliveryZone: "Metro Manila Core",
         customerFullName: "KYU Repeat Race",
         customerEmail: "repeat-race@example.com",
         customerPhone: "09171234567",
+        termsAccepted: true,
         addons: [],
       },
       "repeat-customer-race-key",

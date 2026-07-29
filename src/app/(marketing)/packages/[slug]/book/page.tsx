@@ -40,6 +40,18 @@ export default async function PackageBookingPage({ params }: PackageBookingPageP
     redirect(`/register?package=${pkg.slug}`);
   }
 
+  const { data: customerProfileData } = await supabase
+    .from("profiles")
+    .select("full_name, email, phone")
+    .eq("id", user.id)
+    .eq("is_deleted", false)
+    .maybeSingle();
+  const customerProfile = customerProfileData as {
+    full_name: string;
+    email: string;
+    phone: string | null;
+  } | null;
+
   return (
     <div className="py-10 md:py-14">
       <div className="container mx-auto px-4">
@@ -63,7 +75,14 @@ export default async function PackageBookingPage({ params }: PackageBookingPageP
           </Button>
         </div>
 
-        <BookingWizard initialPackage={pkg} />
+        <BookingWizard
+          initialPackage={pkg}
+          initialCustomer={{
+            fullName: customerProfile?.full_name || "",
+            email: customerProfile?.email || user.email || "",
+            phone: customerProfile?.phone || "",
+          }}
+        />
       </div>
     </div>
   );

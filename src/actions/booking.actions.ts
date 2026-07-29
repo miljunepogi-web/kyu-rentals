@@ -7,6 +7,8 @@ import { calculateBookingPrice } from "@/lib/pricing/pricing-engine";
 import { Result } from "@/types";
 import { ErrorCode } from "@/utils/errors";
 import { logger } from "@/utils/logger";
+import { BOOKING_ADDONS } from "@/config/booking-options.config";
+import { CANCELLATION_POLICY } from "@/config/cancellation-policy.config";
 import {
   createBookingInputSchema,
   type CreateBookingInput,
@@ -192,6 +194,15 @@ export async function createBookingAction(
 
     const packageId = pkg.id;
     const packageName = pkg.name;
+    const canonicalAddons = payload.addons.map((selection) => {
+      const addon = BOOKING_ADDONS[selection.id];
+      return {
+        id: selection.id,
+        name: addon.name,
+        unitPrice: addon.unitPrice,
+        quantity: selection.quantity,
+      };
+    });
 
     // E. Pure Server-Side Pricing Calculation
     const pricing = calculateBookingPrice({
@@ -200,7 +211,7 @@ export async function createBookingAction(
       basePriceFullDay: pkg.price_full_day,
       durationHours: payload.durationHours,
       eventDate: payload.eventDate,
-      addons: payload.addons,
+      addons: canonicalAddons,
       deliveryZone: payload.deliveryZone,
       promoDiscount: 0,
       isHoliday: false,
@@ -230,6 +241,12 @@ export async function createBookingAction(
         deliveryAddress: payload.deliveryAddress,
         deliveryZone: payload.deliveryZone,
         specialInstructions: payload.specialInstructions,
+      },
+      consent: {
+        termsAccepted: true,
+        acceptedAt: new Date().toISOString(),
+        policyVersion: CANCELLATION_POLICY.version,
+        policyPath: CANCELLATION_POLICY.path,
       },
     };
 

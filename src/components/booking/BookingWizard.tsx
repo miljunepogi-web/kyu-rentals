@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  BOOKING_ADDONS,
+  BOOKING_DELIVERY_ZONES,
+  BOOKING_DURATION_OPTIONS,
+  type BookingDeliveryZone,
+} from "@/config/booking-options.config";
+import { CANCELLATION_POLICY } from "@/config/cancellation-policy.config";
+import {
   Calendar,
   Clock,
   MapPin,
@@ -24,6 +31,11 @@ import {
 
 interface BookingWizardProps {
   initialPackage: RentalPackage;
+  initialCustomer: {
+    fullName: string;
+    email: string;
+    phone: string;
+  };
 }
 
 /**
@@ -32,11 +44,11 @@ interface BookingWizardProps {
  */
 function calculateWizardPricing(
   initialPackage: RentalPackage,
-  durationHours: number,
+  durationHours: (typeof BOOKING_DURATION_OPTIONS)[number],
   extraMics: number,
   extraLights: boolean,
   eventDate: string,
-  deliveryZone: string
+  deliveryZone: BookingDeliveryZone
 ) {
   const basePrice =
     durationHours === 4
@@ -45,13 +57,13 @@ function calculateWizardPricing(
       ? initialPackage.price8Hours
       : initialPackage.priceFullDay;
 
-  const micAddonTotal = extraMics * 300;
-  const lightAddonTotal = extraLights ? 500 : 0;
+  const micAddonTotal = extraMics * BOOKING_ADDONS["add-mic"].unitPrice;
+  const lightAddonTotal = extraLights ? BOOKING_ADDONS["add-light"].unitPrice : 0;
   const addonsTotal = micAddonTotal + lightAddonTotal;
 
   const isWeekend = eventDate ? [0, 6].includes(new Date(eventDate).getDay()) : false;
   const surchargeAmount = isWeekend ? Math.round((basePrice + addonsTotal) * 0.1) : 0;
-  const deliveryFee = deliveryZone.includes("Outside") ? 500 : 250;
+  const deliveryFee = BOOKING_DELIVERY_ZONES[deliveryZone].fee;
   const grandTotal = basePrice + addonsTotal + surchargeAmount + deliveryFee;
   const depositAmount = Math.round(grandTotal * 0.3);
   const balanceAmount = grandTotal - depositAmount;
@@ -70,21 +82,23 @@ function calculateWizardPricing(
   };
 }
 
-export function BookingWizard({ initialPackage }: BookingWizardProps) {
+export function BookingWizard({ initialPackage, initialCustomer }: BookingWizardProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Form State
   const [eventDate, setEventDate] = useState("");
   const [startTime, setStartTime] = useState("14:00");
-  const [durationHours, setDurationHours] = useState<number>(4);
+  const [durationHours, setDurationHours] =
+    useState<(typeof BOOKING_DURATION_OPTIONS)[number]>(4);
   const [extraMics, setExtraMics] = useState<number>(0);
   const [extraLights, setExtraLights] = useState<boolean>(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryZone, setDeliveryZone] = useState("Metro Manila Core (Free)");
+  const [deliveryZone, setDeliveryZone] =
+    useState<BookingDeliveryZone>("Metro Manila Core");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [customerFullName, setCustomerFullName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerFullName, setCustomerFullName] = useState(initialCustomer.fullName);
+  const [customerEmail] = useState(initialCustomer.email);
+  const [customerPhone, setCustomerPhone] = useState(initialCustomer.phone);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Execution & Output States
@@ -150,8 +164,8 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
       handleError("Please enter a valid email address.");
       return false;
     }
-    if (!customerPhone.trim() || customerPhone.trim().length < 10) {
-      handleError("Please enter a valid mobile phone number (at least 10 digits).");
+    if (!/^(?:\+63|0)9\d{9}$/.test(customerPhone.trim())) {
+      handleError("Please enter a valid Philippine mobile number.");
       return false;
     }
     if (!termsAccepted) {
@@ -185,10 +199,10 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
     try {
       const addonsPayload = [];
       if (extraMics > 0) {
-        addonsPayload.push({ id: "add-mic", name: "Extra Wireless Mic", unitPrice: 300, quantity: extraMics });
+        addonsPayload.push({ id: "add-mic" as const, quantity: extraMics });
       }
       if (extraLights) {
-        addonsPayload.push({ id: "add-light", name: "Laser Disco Party Bar", unitPrice: 500, quantity: 1 });
+        addonsPayload.push({ id: "add-light" as const, quantity: 1 });
       }
 
       // Secure Cryptographic UUID for Idempotency Key (Polish Improvement #2)
@@ -205,6 +219,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
           customerFullName,
           customerEmail,
           customerPhone,
+          termsAccepted: true,
           specialInstructions,
           addons: addonsPayload,
         },
@@ -336,7 +351,11 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                     <select
                       id="duration-hours"
                       value={durationHours}
-                      onChange={(e) => setDurationHours(Number(e.target.value))}
+                      onChange={(e) =>
+                        setDurationHours(
+                          Number(e.target.value) as (typeof BOOKING_DURATION_OPTIONS)[number],
+                        )
+                      }
                       disabled={isBusy}
                       className="mt-1.5 flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
@@ -450,11 +469,11 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                   <select
                     id="delivery-zone"
                     value={deliveryZone}
-                    onChange={(e) => setDeliveryZone(e.target.value)}
+                    onChange={(e) => setDeliveryZone(e.target.value as BookingDeliveryZone)}
                     disabled={isBusy}
                     className="mt-1.5 flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <option value="Metro Manila Core (Free)">Metro Manila Core (Standard Delivery - ₱250)</option>
+                    <option value="Metro Manila Core">Metro Manila Core (Standard Delivery - ₱250)</option>
                     <option value="Outside Metro Manila">Outside Metro Manila (Rizal / Cavite / Laguna - ₱500)</option>
                   </select>
                 </div>
@@ -531,9 +550,9 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                       type="email"
                       placeholder="juan@example.com"
                       value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      readOnly
                       disabled={isBusy}
-                      className="mt-1.5 h-11"
+                      className="mt-1.5 h-11 bg-secondary/40"
                       required
                     />
                   </div>
@@ -563,7 +582,7 @@ export function BookingWizard({ initialPackage }: BookingWizardProps) {
                   />
                   <label htmlFor="terms" className="cursor-pointer text-muted-foreground leading-relaxed">
                     I agree to the KYU Rentals{" "}
-                    <a href="/policies/cancellation" target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2">
+                    <a href={CANCELLATION_POLICY.path} target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2">
                       cancellation and refund policy
                     </a>
                     . I understand that the <strong>30% reservation deposit is non-refundable for customer-initiated cancellations</strong>, while all booking payments are refunded if KYU Rentals cannot fulfill the confirmed booking. The remaining 70% balance is collected upon delivery.
