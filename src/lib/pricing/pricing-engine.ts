@@ -1,10 +1,21 @@
 import { z } from "zod";
+import {
+  BOOKING_DELIVERY_ZONES,
+  BOOKING_DELIVERY_ZONE_VALUES,
+  BOOKING_DURATION_OPTIONS,
+} from "@/config/booking-options.config";
 
 export const pricingInputSchema = z.object({
   basePrice4Hours: z.number().min(0),
   basePrice8Hours: z.number().min(0),
   basePriceFullDay: z.number().min(0),
-  durationHours: z.number().min(4),
+  durationHours: z.union(
+    BOOKING_DURATION_OPTIONS.map((hours) => z.literal(hours)) as [
+      z.ZodLiteral<4>,
+      z.ZodLiteral<8>,
+      z.ZodLiteral<24>,
+    ],
+  ),
   eventDate: z.string().min(1),
   addons: z
     .array(
@@ -16,7 +27,7 @@ export const pricingInputSchema = z.object({
       })
     )
     .default([]),
-  deliveryZone: z.string().optional(),
+  deliveryZone: z.enum(BOOKING_DELIVERY_ZONE_VALUES),
   promoDiscount: z.number().min(0).default(0),
   isHoliday: z.boolean().default(false),
 });
@@ -93,8 +104,7 @@ export function calculateBookingPrice(input: PricingInput): PricingBreakdown {
   const totalSurcharges = weekendSurchargeAmount + holidaySurchargeAmount;
 
   // 4. Delivery Fee Engine
-  const isOutsideCore = parsed.deliveryZone?.toLowerCase().includes("outside");
-  const deliveryFee = isOutsideCore ? 500 : 250;
+  const deliveryFee = BOOKING_DELIVERY_ZONES[parsed.deliveryZone].fee;
 
   // 5. Discount Engine
   const discountAmount = Math.min(parsed.promoDiscount, subtotalBeforeSurcharges);

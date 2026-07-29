@@ -1,4 +1,6 @@
 export const CANCELLATION_POLICY = {
+  version: "2026-07-28",
+  path: "/policies/cancellation",
   depositPercent: 30,
   customerCancellation:
     "The 30% reservation deposit is non-refundable for customer-initiated cancellations.",
